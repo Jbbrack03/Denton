@@ -9,9 +9,9 @@ This is the comprehensive implementation plan for the Sudachi multiplayer subsys
 **Package Manager Decision:** vcpkg (already integrated in Sudachi)  
 **Server Stack:** Node.js with TypeScript  
 
-## Phase 0: Legacy Code Removal and Environment Setup
+## Phase 0: Legacy Code Removal and Environment Setup ✅ COMPLETED
 
-### Task 0.1: Remove Legacy Multiplayer Code
+### Task 0.1: Remove Legacy Multiplayer Code ✅ COMPLETED
 **Coding Agent Prompt:**
 "Remove all legacy multiplayer code from the Sudachi codebase. This is a critical first step that must be completed before any new implementation work."
 
@@ -144,9 +144,9 @@ src/core/multiplayer/
     │   └── windows/
 ```
 
-## Phase 1: Core Infrastructure Implementation
+## Phase 1: Core Infrastructure Implementation ✅ COMPLETED
 
-### Task 1.1: Implement HLE Interface
+### Task 1.1: Implement HLE Interface ✅ COMPLETED
 **Coding Agent Prompt:**
 "Implement the nn::ldn HLE interface exactly as specified in the PRD. Create a new service class `LdnService` that inherits from `ServiceFramework` and implements all IPC commands listed in Table 2.1. Each command must validate inputs and return appropriate ResultCodes."
 
@@ -174,7 +174,7 @@ private:
 };
 ```
 
-### Task 1.2: Implement Configuration System
+### Task 1.2: Implement Configuration System ✅ COMPLETED
 **Coding Agent Prompt:**
 "Create a configuration management system for multiplayer settings. Implement JSON-based configuration with the exact schema specified in the PRD. Include migration logic from legacy settings and platform-specific config paths."
 
@@ -218,7 +218,7 @@ std::filesystem::path GetMultiplayerConfigPath() {
 }
 ```
 
-### Task 1.3: Create Packet Protocol
+### Task 1.3: Create Packet Protocol ✅ COMPLETED
 **Coding Agent Prompt:**
 "Implement the binary packet protocol for LDN data transmission. Use the exact packet header structure from the Project Overview document. Include CRC32 checksum calculation and packet type definitions."
 
