@@ -1,0 +1,3 @@
+[submodule "sudachi"]
+	path = sudachi
+	url = https://github.com/XJustForYouX/sudachi.git
