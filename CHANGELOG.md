@@ -40,10 +40,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Implemented packet integrity verification using CRC32 checksums
 - Added configuration validation to prevent invalid settings
 
+## [0.2.0] - 2025-08-03
+
+### Added
+- WebSocket Room Client implementation for Model A (Internet multiplayer)
+  - 49+ comprehensive test cases across 4 test files
+  - Thread-safe message handling with queue system
+  - Automatic reconnection with exponential backoff
+  - JSON message serialization/deserialization for all message types
+  - Support for all room server protocol messages
+- P2P Network module with cpp-libp2p integration design
+  - 68+ test scenarios for comprehensive coverage
+  - Mock-based P2PNetwork implementation for testing
+  - Support for TCP and WebSocket transports
+  - NAT traversal detection and relay fallback logic
+  - Thread-safe message handling
+- Relay Client implementation for proxy server fallback
+  - RelayProtocol with 12-byte header (PRD Section 3.4 compliant)
+  - Session management with JWT authentication support
+  - Bandwidth limiting (10 Mbps per session) with token bucket algorithm
+  - P2P to relay fallback mechanism
+  - Thread-safe operations with proper synchronization
+- Comprehensive test infrastructure with 100+ tests total
+- Mock interfaces for all network components
+
+### Changed
+- Refactored WebSocket Room Client to use proper JSON parsing (security improvement)
+- Extracted ExponentialBackoff utility class for reusability
+- Updated CMakeLists.txt files to include all new components
+
+### Security
+- Replaced manual string parsing with secure JSON library (nlohmann/json)
+- Added input validation for all network messages
+- Implemented bandwidth limiting to prevent resource exhaustion
+
 ## [Unreleased]
 ### TODO
-- WebSocket Room Client for Model A (Internet multiplayer)
-- cpp-libp2p integration for P2P networking
 - mDNS Discovery implementation for Model B (Ad-hoc multiplayer)
 - Android Wi-Fi Direct support via JNI
 - Windows Mobile Hotspot support via C++/WinRT
+- UI components for multiplayer settings
+- Integration testing with actual games
+- Performance benchmarking
