@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 set(SOURCES
-    # Add source files as they are created
+    error_handling.cpp
 )
 
 set(HEADERS
     error_codes.h
+    error_handling.h
 )
 
 add_library(sudachi_multiplayer_common STATIC ${SOURCES} ${HEADERS})
@@ -23,3 +24,8 @@ target_link_libraries(sudachi_multiplayer_common
 )
 
 target_compile_features(sudachi_multiplayer_common PUBLIC cxx_std_17)
+
+# Add tests subdirectory
+if(ENABLE_TESTING)
+    add_subdirectory(tests)
+endif()

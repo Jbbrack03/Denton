@@ -106,10 +106,12 @@ configure_test_target(sudachi_multiplayer_integration_tests)
 find_package(benchmark CONFIG QUIET)
 if(benchmark_FOUND)
     add_executable(sudachi_multiplayer_benchmarks
-        benchmarks/benchmark_p2p_connection.cpp
+        benchmarks/benchmark_main.cpp
+        benchmarks/benchmark_connection_establishment.cpp
+        benchmarks/benchmark_latency_measurement.cpp
         benchmarks/benchmark_packet_processing.cpp
-        benchmarks/benchmark_mdns_discovery.cpp
-        benchmarks/benchmark_relay_throughput.cpp
+        benchmarks/benchmark_scalability_memory.cpp
+        benchmarks/benchmark_component_performance.cpp
     )
 
     target_link_libraries(sudachi_multiplayer_benchmarks
@@ -119,8 +121,43 @@ if(benchmark_FOUND)
         sudachi_multiplayer_model_a
         sudachi_multiplayer_model_b
     )
+    
+    target_include_directories(sudachi_multiplayer_benchmarks
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/benchmarks
+        ${CMAKE_SOURCE_DIR}/src/core/multiplayer
+    )
 
     target_compile_features(sudachi_multiplayer_benchmarks PUBLIC cxx_std_17)
+    
+    # Platform-specific configuration
+    if(WIN32)
+        target_compile_definitions(sudachi_multiplayer_benchmarks PRIVATE
+            _WIN32_WINNT=0x0A00  # Windows 10
+            NOMINMAX
+        )
+    elseif(ANDROID)
+        target_compile_definitions(sudachi_multiplayer_benchmarks PRIVATE
+            ANDROID_PLATFORM
+        )
+    endif()
+    
+    # Add custom benchmark target
+    add_custom_target(run_benchmarks
+        COMMAND $<TARGET_FILE:sudachi_multiplayer_benchmarks>
+        DEPENDS sudachi_multiplayer_benchmarks
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Running performance benchmarks..."
+    )
+    
+    # Add benchmark with JSON output
+    add_custom_target(run_benchmarks_json
+        COMMAND $<TARGET_FILE:sudachi_multiplayer_benchmarks> --benchmark_format=json --benchmark_out=benchmark_results.json
+        DEPENDS sudachi_multiplayer_benchmarks
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Running performance benchmarks with JSON output..."
+    )
+    
 else()
     message(STATUS "Google Benchmark not found, skipping performance tests")
 endif()

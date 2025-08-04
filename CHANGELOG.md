@@ -5,6 +5,55 @@ All notable changes to the Sudachi Multiplayer project will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-08-04
+
+### Added
+- **Phase 4: UI Components & Error Handling** - Complete Qt6-based multiplayer UI system
+  - MultiplayerModeToggle component with Internet/Ad-Hoc mode selection
+  - ConnectionStatusOverlay with color-coded progress indicators and animation support
+  - ErrorDialogManager with queue management and accessibility features
+  - Comprehensive UI test suite with 63+ test cases following TDD methodology
+  - Visual styling with blue for Internet mode, orange for Ad-Hoc mode
+  - 200-300ms transition animations and fade in/out effects
+  - Full accessibility support with proper keyboard navigation
+
+- **Phase 5: Game-Specific Testing Framework** - Advanced testing infrastructure for Nintendo Switch games
+  - Comprehensive integration tests for Animal Crossing: New Horizons (island visits, item trading)
+  - High-frequency synchronization tests for Super Smash Bros. Ultimate (60Hz, frame-perfect inputs)
+  - GameTestBase framework with MockEmulatorInstance and NetworkConditionSimulator
+  - Support for both Model A (Internet) and Model B (Ad-Hoc) multiplayer mode testing
+  - Network condition simulation including latency, packet loss, jitter, and connection drops
+  - Game state synchronization verification across multiple emulator instances
+
+- **Phase 5: Performance Benchmarking Suite** - Professional benchmark validation system
+  - Connection establishment benchmarks: P2P < 5s, Ad-Hoc < 2s, Relay < 1s
+  - Latency measurement benchmarks: Local < 5ms, P2P < 20ms, Relay < 50ms
+  - Packet processing benchmarks with 60Hz capability validation (16.67ms budget)
+  - Scalability benchmarks supporting 100k connections, 10k sessions, 8 players
+  - Component-specific performance benchmarks for HLE, UI, and error handling
+  - Statistical analysis, memory tracking, and CI/CD integration features
+
+### Fixed
+- **Critical Error Handling Integration Issues** - Resolved multiple integration problems
+  - Fixed namespace mismatch between error_codes.h and error_handling.h/cpp
+  - Added missing error codes: NetworkTimeout, SSLError, HostUnreachable, ConnectionRefused, ConnectionLost, InvalidResponse, ProtocolError, ResourceExhausted
+  - Implemented previously stubbed functions: SetErrorContext(), SetRetryDelay(), AddSuggestedAction()
+  - Enhanced cross-component error propagation with proper categorization and thread safety
+
+### Enhanced
+- **Error Handling Framework** - Comprehensive integration and testing
+  - Created comprehensive integration tests exposing real framework issues
+  - Enhanced error context management with thread-safe storage and application
+  - Improved error categorization and UI integration capabilities
+  - Added cross-component error propagation testing and validation
+
+### Technical
+- **Test Infrastructure Improvements** - Advanced TDD methodology implementation
+  - Implemented test-architect → test-writer → implementation-verifier agent workflow
+  - Created comprehensive failing tests that drove proper implementation
+  - Enhanced build system integration with CMake for Qt6 + Google Test/Mock
+  - Added visual regression testing capabilities and accessibility validation
+
 ## [0.1.0] - 2025-08-03
 
 ### Added

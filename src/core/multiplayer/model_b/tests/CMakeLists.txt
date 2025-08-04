@@ -17,6 +17,11 @@ if(ANDROID)
         test_wifi_direct_wrapper.cpp
         test_wifi_direct_permissions.cpp
     )
+elseif(WIN32)
+    list(APPEND TEST_SOURCES
+        test_mobile_hotspot_manager.cpp
+        test_mobile_hotspot_capabilities.cpp
+    )
 endif()
 
 # Red phase verification
@@ -33,6 +38,10 @@ set(MOCK_HEADERS
 if(ANDROID)
     list(APPEND MOCK_HEADERS
         mocks/mock_jni_env.h
+    )
+elseif(WIN32)
+    list(APPEND MOCK_HEADERS
+        mocks/mock_winrt_apis.h
     )
 endif()
 
@@ -128,6 +137,7 @@ if(WIN32)
         PRIVATE
             WIN32_LEAN_AND_MEAN
             NOMINMAX
+            ENABLE_MOBILE_HOTSPOT_TESTS=1
     )
 elseif(ANDROID)
     target_compile_definitions(test_multiplayer_model_b

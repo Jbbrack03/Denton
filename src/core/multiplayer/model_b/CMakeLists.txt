@@ -26,9 +26,12 @@ if(ANDROID)
 elseif(WIN32)
     list(APPEND SOURCES
         platform/windows/mobile_hotspot_manager.cpp
+        platform/windows/mobile_hotspot_capabilities.cpp
     )
     list(APPEND HEADERS
         platform/windows/mobile_hotspot_manager.h
+        platform/windows/mobile_hotspot_capabilities.h
+        platform/windows/windows_types.h
     )
 endif()
 

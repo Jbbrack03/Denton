@@ -14,6 +14,8 @@ enum class ErrorCode {
     // Connection errors
     ConnectionFailed,
     ConnectionTimeout,
+    ConnectionRefused,
+    ConnectionLost,
     AuthenticationFailed,
     AlreadyConnected,
     NotConnected,
@@ -36,6 +38,10 @@ enum class ErrorCode {
     InvalidParameter,
     InternalError,
     NetworkError,
+    NetworkTimeout,
+    HostUnreachable,
+    InvalidResponse,
+    SSLError,
     Timeout,
     NotSupported,
     PermissionDenied,
@@ -49,7 +55,22 @@ enum class ErrorCode {
     ServiceUnavailable,
     
     // Peer errors
-    MaxPeersExceeded
+    MaxPeersExceeded,
+    
+    // Protocol errors
+    ProtocolError,
+    
+    // Resource errors  
+    ResourceExhausted,
+    
+    // Platform-specific errors (for Windows Mobile Hotspot)
+    PlatformAPIError,
+    PlatformFeatureUnavailable,
+    PlatformPermissionDenied,
+    
+    // Configuration errors
+    ConfigurationInvalid,
+    ConfigurationMissing
 };
 
 } // namespace Core::Multiplayer
