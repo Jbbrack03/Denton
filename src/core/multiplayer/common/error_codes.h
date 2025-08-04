@@ -38,7 +38,18 @@ enum class ErrorCode {
     NetworkError,
     Timeout,
     NotSupported,
-    PermissionDenied
+    PermissionDenied,
+    
+    // State errors
+    NotInitialized,
+    InvalidState,
+    
+    // Discovery errors
+    DiscoveryFailed,
+    ServiceUnavailable,
+    
+    // Peer errors
+    MaxPeersExceeded
 };
 
 } // namespace Core::Multiplayer
