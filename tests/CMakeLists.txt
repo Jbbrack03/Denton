@@ -219,6 +219,9 @@ target_sources(sudachi_test_utilities INTERFACE
 # Add UI tests subdirectory
 add_subdirectory(ui)
 
+# Add core tests subdirectory
+add_subdirectory(unit/core)
+
 # Export test configuration for use by other modules
 set(SUDACHI_TEST_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data" CACHE PATH "Path to test data files")
 set(SUDACHI_ENABLE_INTEGRATION_TESTS ON CACHE BOOL "Enable integration tests")

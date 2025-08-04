@@ -24,15 +24,8 @@ if(ANDROID)
         platform/android/wifi_direct_permission_manager.h
     )
 elseif(WIN32)
-    list(APPEND SOURCES
-        platform/windows/mobile_hotspot_manager.cpp
-        platform/windows/mobile_hotspot_capabilities.cpp
-    )
-    list(APPEND HEADERS
-        platform/windows/mobile_hotspot_manager.h
-        platform/windows/mobile_hotspot_capabilities.h
-        platform/windows/windows_types.h
-    )
+    # Include Windows platform subdirectory for proper SDK configuration
+    add_subdirectory(platform/windows)
 endif()
 
 add_library(sudachi_multiplayer_model_b STATIC ${SOURCES} ${HEADERS})
@@ -50,8 +43,8 @@ target_link_libraries(sudachi_multiplayer_model_b
 # Platform-specific libraries
 if(WIN32)
     target_link_libraries(sudachi_multiplayer_model_b
-        PRIVATE
-            windowsapp  # For Windows Runtime APIs
+        PUBLIC
+            sudachi_multiplayer_windows_platform  # Windows platform implementation
     )
 endif()
 

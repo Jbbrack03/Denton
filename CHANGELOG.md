@@ -5,6 +5,66 @@ All notable changes to the Sudachi Multiplayer project will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-08-04
+
+### Added
+- **Phase 6.4: Windows WinRT Integration** - Complete Windows platform support implementation
+  - WindowsCapabilityDetector for runtime Windows capability detection
+  - FindWindowsSDK.cmake module for proper Windows SDK detection
+  - Windows platform-specific CMakeLists.txt with SDK requirements (Windows 10 1607+)
+  - Test program for WinRT integration verification
+  - Comprehensive test suite (20+ test cases) for Windows capability detection
+
+- **Phase 7.1: Main Build System Integration** - Unified CMake build system
+  - Added ENABLE_MULTIPLAYER option to main CMakeLists.txt
+  - Integrated multiplayer subsystem into core CMake configuration
+  - Modified core.cpp to initialize/shutdown multiplayer backend
+  - Added GetMultiplayerBackend() methods to System class
+  - Conditional compilation throughout for clean integration
+
+- **Phase 7.2: Dependency Resolution and Distribution** - Cross-platform packaging
+  - MultiplayerPackaging.cmake for cross-platform packaging support
+  - SudachiMultiplayerConfig.cmake.in template for find_package support
+  - Findcpp-libp2p.cmake for P2P dependency handling
+  - GitHub Actions workflow for CI/CD (build-multiplayer.yml)
+  - Comprehensive packaging support for Windows, Linux, macOS, Android
+
+- **Phase 6.1-6.3: Critical Backend Integration** - Production-ready multiplayer backend
+  - MultiplayerBackend interface unifying Model A and Model B
+  - LdnServiceBridge replacing legacy LANDiscovery integration
+  - BackendFactory for automatic backend selection (Internet vs Ad-hoc)
+  - ErrorCodeMapper for seamless error code translation
+  - TypeTranslator for bidirectional LDN/internal type conversion
+  - NetworkSecurityManager with comprehensive security framework
+  - SecureNetworkHandler for easy component integration
+
+### Fixed
+- **TDD Compliance Restoration** - Comprehensive test coverage completion
+  - Created comprehensive test suite for WindowsCapabilityDetector
+  - Added core integration tests for multiplayer backend integration
+  - Updated CMake configurations to include test compilation
+  - Integrated tests into existing test infrastructure
+
+### Enhanced
+- **Security Framework** - Production-ready network security
+  - NetworkInputValidator with packet, JSON, protocol validation
+  - TokenBucketRateLimit and ClientRateManager for rate limiting
+  - DDoSProtection with connection limits and IP blacklisting
+  - Protection against buffer overflow, injection attacks, resource exhaustion
+
+- **Build System** - Modern CMake integration patterns
+  - cpp-libp2p integration via FetchContent with Hunter support
+  - Updated vcpkg.json with required Boost dependencies
+  - C++20 requirement properly configured for cpp-libp2p compatibility
+  - Platform-specific dependency configuration
+
+### Technical
+- **Windows Platform Support** - Complete C++/WinRT integration
+  - Mobile Hotspot support via NetworkOperatorTetheringManager
+  - Runtime capability detection for system compatibility
+  - Windows SDK version detection with fallback mechanisms
+  - Platform-specific build configuration and testing
+
 ## [0.4.0] - 2025-08-04
 
 ### Added

@@ -3,11 +3,15 @@
 
 set(SOURCES
     error_handling.cpp
+    network_security.cpp
+    secure_network_handler.cpp
 )
 
 set(HEADERS
     error_codes.h
     error_handling.h
+    network_security.h
+    secure_network_handler.h
 )
 
 add_library(sudachi_multiplayer_common STATIC ${SOURCES} ${HEADERS})
