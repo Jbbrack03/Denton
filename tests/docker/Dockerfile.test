@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2025 Sudachi Emulator Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Dockerfile for Sudachi Multiplayer test runner
+FROM ubuntu:22.04
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    pkg-config \
+    libssl-dev \
+    libgtest-dev \
+    libgmock-dev \
+    libbenchmark-dev \
+    libboost-all-dev \
+    libwebsocketpp-dev \
+    libjwt-dev \
+    nlohmann-json3-dev \
+    libspdlog-dev \
+    curl \
+    netcat \
+    iproute2 \
+    iputils-ping \
+    tcpdump \
+    valgrind \
+    lcov \
+    gcovr \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install vcpkg for additional dependencies
+RUN git clone https://github.com/Microsoft/vcpkg.git /opt/vcpkg && \
+    cd /opt/vcpkg && \
+    ./bootstrap-vcpkg.sh && \
+    ./vcpkg integrate install
+
+ENV VCPKG_ROOT=/opt/vcpkg
+ENV PATH="${VCPKG_ROOT}:${PATH}"
+
+# Create build directory
+WORKDIR /sudachi
+
+# Copy source files
+COPY src/ /sudachi/src/
+COPY tests/ /sudachi/tests/
+COPY externals/mdns/ /sudachi/externals/mdns/
+COPY CMakeLists.txt /sudachi/
+
+# Build tests
+RUN mkdir -p build && cd build && \
+    cmake .. \
+        -GNinja \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DBUILD_TESTING=ON \
+        -DSUDACHI_ENABLE_INTEGRATION_TESTS=ON \
+        -DSUDACHI_ENABLE_PERFORMANCE_TESTS=ON \
+        -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage" && \
+    ninja
+
+# Set up test environment
+ENV GTEST_COLOR=yes
+ENV GTEST_OUTPUT=xml:/results/
+
+# Create results directory
+RUN mkdir -p /results
+
+# Default command runs all tests
+CMD ["bash", "-c", "cd /sudachi/build && ctest --output-on-failure --verbose"]

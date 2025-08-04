@@ -1,0 +1,168 @@
+# SPDX-FileCopyrightText: 2025 Sudachi Emulator Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# UI Test Infrastructure for Sudachi Multiplayer
+# Following Test Architect's comprehensive UI test strategy
+
+cmake_minimum_required(VERSION 3.22)
+
+# Find Qt6 components required for UI testing
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Test)
+
+# Enable testing
+enable_testing()
+
+# Find Google Test package
+find_package(GTest CONFIG REQUIRED)
+
+# UI Test common sources (mocks and utilities)
+set(UI_TEST_COMMON_SOURCES
+    mocks/mock_qt_widgets.h
+    mocks/mock_qt_widgets.cpp
+    mocks/mock_multiplayer_backend.h
+    mocks/mock_multiplayer_backend.cpp
+    test_utilities/qt_test_fixtures.h
+)
+
+# UI Unit Tests
+set(UI_UNIT_TEST_SOURCES
+    unit/test_multiplayer_mode_toggle.cpp
+    unit/test_connection_status_overlay.cpp
+    unit/test_error_dialog_manager.cpp
+    unit/test_game_session_widget.cpp
+    unit/test_network_configuration_dialog.cpp
+    unit/test_player_list_widget.cpp
+    unit/test_notification_system.cpp
+    unit/test_ui_state_manager.cpp
+)
+
+# UI Integration Tests
+set(UI_INTEGRATION_TEST_SOURCES
+    integration/test_multiplayer_ui_flow.cpp
+    integration/test_qt_threading_integration.cpp
+    integration/test_cross_platform_ui.cpp
+    integration/test_accessibility_compliance.cpp
+)
+
+# Create UI unit test executable
+add_executable(sudachi_multiplayer_ui_unit_tests
+    ${UI_UNIT_TEST_SOURCES}
+    ${UI_TEST_COMMON_SOURCES}
+)
+
+# Create UI integration test executable
+add_executable(sudachi_multiplayer_ui_integration_tests
+    ${UI_INTEGRATION_TEST_SOURCES}
+    ${UI_TEST_COMMON_SOURCES}
+)
+
+# Common UI test configuration function
+function(configure_ui_test_target target_name)
+    target_link_libraries(${target_name}
+        PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::Test
+        GTest::gtest
+        GTest::gtest_main
+        GTest::gmock
+        sudachi_multiplayer_common
+        sudachi_multiplayer_model_a
+        sudachi_multiplayer_model_b
+    )
+
+    target_include_directories(${target_name}
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/src/core/multiplayer
+        ${CMAKE_SOURCE_DIR}/src/sudachi
+    )
+
+    target_compile_features(${target_name} PUBLIC cxx_std_17)
+
+    # Qt-specific compile definitions
+    target_compile_definitions(${target_name} PRIVATE
+        QT_NO_DEBUG_OUTPUT
+        QT_TESTCASE_BUILDDIR="${CMAKE_CURRENT_BINARY_DIR}"
+    )
+
+    # Platform-specific UI test configuration
+    if(WIN32)
+        target_compile_definitions(${target_name} PRIVATE
+            _WIN32_WINNT=0x0A00
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+        )
+    elseif(ANDROID)
+        target_compile_definitions(${target_name} PRIVATE
+            ANDROID_PLATFORM
+            ANDROID_UI_TESTING
+        )
+    endif()
+
+    # Enable Qt automoc for mock objects
+    set_target_properties(${target_name} PROPERTIES
+        AUTOMOC ON
+        AUTOUIC ON
+        AUTORCC ON
+    )
+
+    # Add tests to CTest
+    include(GoogleTest)
+    gtest_discover_tests(${target_name}
+        PROPERTIES
+        TIMEOUT 180  # UI tests may need longer timeout
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"  # Headless testing
+    )
+endfunction()
+
+# Configure UI test targets
+configure_ui_test_target(sudachi_multiplayer_ui_unit_tests)
+configure_ui_test_target(sudachi_multiplayer_ui_integration_tests)
+
+# Custom UI test targets
+add_custom_target(run_ui_unit_tests
+    COMMAND $<TARGET_FILE:sudachi_multiplayer_ui_unit_tests>
+    DEPENDS sudachi_multiplayer_ui_unit_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running UI unit tests..."
+)
+
+add_custom_target(run_ui_integration_tests
+    COMMAND $<TARGET_FILE:sudachi_multiplayer_ui_integration_tests>
+    DEPENDS sudachi_multiplayer_ui_integration_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running UI integration tests..."
+)
+
+add_custom_target(run_all_ui_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -R "ui_"
+    DEPENDS sudachi_multiplayer_ui_unit_tests sudachi_multiplayer_ui_integration_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running all UI tests..."
+)
+
+# UI Performance tests (if benchmark is available)
+find_package(benchmark CONFIG QUIET)
+if(benchmark_FOUND)
+    add_executable(sudachi_multiplayer_ui_benchmarks
+        benchmarks/benchmark_widget_rendering.cpp
+        benchmarks/benchmark_qt_signal_performance.cpp
+        benchmarks/benchmark_ui_responsiveness.cpp
+    )
+
+    target_link_libraries(sudachi_multiplayer_ui_benchmarks
+        PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        benchmark::benchmark
+        sudachi_multiplayer_common
+    )
+
+    target_compile_features(sudachi_multiplayer_ui_benchmarks PUBLIC cxx_std_17)
+endif()
+
+# Export UI test configuration
+set(SUDACHI_UI_TEST_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/test_data" CACHE PATH "Path to UI test data files")
+set(SUDACHI_ENABLE_UI_TESTS ON CACHE BOOL "Enable UI tests")

@@ -1,0 +1,169 @@
+# SPDX-FileCopyrightText: 2025 Sudachi Emulator Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Docker Compose configuration for Sudachi Multiplayer test environment
+# This sets up isolated room and relay servers for integration testing
+
+version: '3.8'
+
+services:
+  # PostgreSQL database for room server
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: sudachi_rooms
+      POSTGRES_USER: sudachi
+      POSTGRES_PASSWORD: test_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sudachi_test_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sudachi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for room server session management
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass test_password
+    networks:
+      - sudachi_test_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Room server (WebSocket-based discovery)
+  room-server:
+    build: 
+      context: ../../server/room-server
+      dockerfile: Dockerfile.test
+    environment:
+      NODE_ENV: test
+      PORT: 8080
+      DATABASE_URL: postgresql://sudachi:test_password@postgres:5432/sudachi_rooms
+      REDIS_URL: redis://:test_password@redis:6379
+      JWT_SECRET: test_jwt_secret_key_for_testing_only
+      MAX_ROOMS_PER_USER: 5
+      MAX_PLAYERS_PER_ROOM: 8
+      ROOM_TIMEOUT_MINUTES: 30
+      LOG_LEVEL: debug
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sudachi_test_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Relay server (proxy fallback)
+  relay-server:
+    build:
+      context: ../../server/relay-server
+      dockerfile: Dockerfile.test
+    environment:
+      PORT: 3478
+      MAX_SESSIONS: 100
+      MAX_BANDWIDTH_PER_SESSION_MBPS: 10
+      SESSION_TIMEOUT_SECONDS: 3600
+      JWT_SECRET: test_jwt_secret_key_for_testing_only
+      LOG_LEVEL: debug
+    ports:
+      - "3478:3478"      # TCP relay
+      - "3478:3478/udp"  # UDP relay (future support)
+    networks:
+      - sudachi_test_net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3478"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test runner container
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.test
+    environment:
+      ROOM_SERVER_URL: ws://room-server:8080
+      RELAY_SERVER_URL: tcp://relay-server:3478
+      TEST_TIMEOUT: 300
+      GTEST_COLOR: "yes"
+      GTEST_OUTPUT: "xml:/results/test_results.xml"
+    volumes:
+      - ./test-results:/results
+      - ../../src:/src:ro
+      - ../../tests:/tests:ro
+    depends_on:
+      room-server:
+        condition: service_healthy
+      relay-server:
+        condition: service_healthy
+    networks:
+      - sudachi_test_net
+    command: |
+      bash -c "
+        echo 'Running unit tests...' &&
+        /tests/build/sudachi_multiplayer_unit_tests &&
+        echo 'Running integration tests...' &&
+        /tests/build/sudachi_multiplayer_integration_tests &&
+        echo 'All tests completed!'
+      "
+
+  # Network simulation container (for testing various network conditions)
+  network-simulator:
+    image: praqma/network-multitool:alpine-extra
+    cap_add:
+      - NET_ADMIN
+    environment:
+      # Configurable network conditions
+      LATENCY_MS: ${TEST_LATENCY:-50}
+      PACKET_LOSS: ${TEST_PACKET_LOSS:-0}
+      BANDWIDTH_LIMIT: ${TEST_BANDWIDTH:-100mbit}
+      JITTER_MS: ${TEST_JITTER:-10}
+    networks:
+      - sudachi_test_net
+    command: |
+      sh -c "
+        # Apply network conditions using tc (traffic control)
+        tc qdisc add dev eth0 root netem delay ${LATENCY_MS}ms ${JITTER_MS}ms loss ${PACKET_LOSS}%
+        tc qdisc add dev eth0 parent 1:1 handle 10: tbf rate ${BANDWIDTH_LIMIT} burst 32kbit latency 400ms
+        echo 'Network conditions applied: ${LATENCY_MS}ms latency, ${PACKET_LOSS}% loss, ${BANDWIDTH_LIMIT} bandwidth'
+        # Keep container running
+        tail -f /dev/null
+      "
+
+  # Mock game server for integration tests
+  mock-game-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock-game
+    environment:
+      GAME_ID: "0100000000010000"  # Mock Animal Crossing
+      MAX_PLAYERS: 8
+      TICK_RATE: 60
+    networks:
+      - sudachi_test_net
+    ports:
+      - "9999:9999/udp"
+
+networks:
+  sudachi_test_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+  test-results:
