@@ -5,6 +5,38 @@ All notable changes to the Sudachi Multiplayer project will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-08-04
+
+### Added
+- **Phase 6-8: Critical Integration and Security Framework** - Comprehensive roadmap for true 100% completion
+  - Phase 6: HLE Service Integration, cpp-libp2p Build Integration, Network Security, Windows Platform Integration
+  - Phase 7: Build System Integration and Deployment with unified CMake structure
+  - Phase 8: Production Hardening and Documentation with error recovery and user guides
+  - Research-based solutions for cpp-libp2p integration using FetchContent with Hunter support
+  - Security framework with input validation, rate limiting, and DDoS protection
+  - Windows C++/WinRT integration with proper SDK configuration and capability detection
+
+### Enhanced
+- **Implementation Plan Analysis** - Comprehensive project completion assessment
+  - Updated completion estimate from claimed 100% to realistic 60-70% based on thorough analysis
+  - Identified critical missing components: HLE integration, cpp-libp2p build, security framework
+  - Added 9-13 weeks of additional development effort for true production readiness
+  - Research-based solutions addressing all identified technical gaps and integration issues
+
+### Fixed
+- **Critical Architecture Gaps** - Documented solutions for production blockers
+  - Legacy LDN service integration gap preventing games from accessing multiplayer
+  - Missing cpp-libp2p dependency causing P2P networking to be non-functional
+  - Build system fragmentation preventing integration with main emulator
+  - Security vulnerabilities requiring comprehensive input validation and rate limiting
+
+### Documentation
+- **Comprehensive Planning Updates** - Enhanced roadmap with research-backed solutions
+  - Added detailed CMake integration patterns for cpp-libp2p with Hunter package manager
+  - Included Windows SDK configuration for C++/WinRT Mobile Hotspot functionality  
+  - Documented security best practices based on C++ network programming research
+  - Created production-ready error recovery patterns with circuit breaker and retry logic
+
 ## [0.3.0] - 2025-08-04
 
 ### Added
