@@ -1,0 +1,187 @@
+# SPDX-FileCopyrightText: 2025 Sudachi Emulator Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Find required packages
+find_package(GTest REQUIRED)
+find_package(GMock REQUIRED)
+
+# Test source files for Error Recovery and Resilience Framework
+set(RESILIENCE_TEST_SOURCES
+    test_connection_recovery_manager.cpp
+    test_circuit_breaker.cpp
+    test_graceful_degradation.cpp
+    test_resilience_integration.cpp
+)
+
+# Mock headers
+set(MOCK_HEADERS
+    mocks/mock_network_connection.h
+    mocks/mock_service_operation.h
+    mocks/mock_multiplayer_backend.h
+)
+
+# Create test executable for resilience framework
+add_executable(test_multiplayer_resilience
+    ${RESILIENCE_TEST_SOURCES}
+    ${MOCK_HEADERS}
+)
+
+# Include directories
+target_include_directories(test_multiplayer_resilience
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/..
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../../..
+)
+
+# Link libraries
+target_link_libraries(test_multiplayer_resilience
+    PRIVATE
+        GTest::gtest
+        GTest::gtest_main
+        GMock::gmock
+        GMock::gmock_main
+        sudachi_multiplayer_common
+        sudachi_common
+        spdlog::spdlog
+        nlohmann_json::nlohmann_json
+)
+
+# Compiler features
+target_compile_features(test_multiplayer_resilience PRIVATE cxx_std_17)
+
+# Test discovery
+include(GoogleTest)
+gtest_discover_tests(test_multiplayer_resilience
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    PROPERTIES
+        TIMEOUT 60
+)
+
+# Test categories for selective running
+set_tests_properties(
+    test_multiplayer_resilience
+    PROPERTIES
+        LABELS "resilience;error_recovery;circuit_breaker;graceful_degradation;tdd_red_phase"
+)
+
+# Custom test targets for different test categories
+add_custom_target(test_connection_recovery
+    COMMAND test_multiplayer_resilience --gtest_filter="*ConnectionRecovery*"
+    DEPENDS test_multiplayer_resilience
+    COMMENT "Running connection recovery tests"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+add_custom_target(test_circuit_breaker_only
+    COMMAND test_multiplayer_resilience --gtest_filter="*CircuitBreaker*"
+    DEPENDS test_multiplayer_resilience
+    COMMENT "Running circuit breaker tests"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+add_custom_target(test_graceful_degradation_only
+    COMMAND test_multiplayer_resilience --gtest_filter="*Degradation*"
+    DEPENDS test_multiplayer_resilience
+    COMMENT "Running graceful degradation tests"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+add_custom_target(test_resilience_integration_only
+    COMMAND test_multiplayer_resilience --gtest_filter="*Resilience*"
+    DEPENDS test_multiplayer_resilience
+    COMMENT "Running resilience integration tests"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Custom test target for TDD red phase verification
+add_custom_target(verify_resilience_red_phase
+    COMMAND test_multiplayer_resilience --gtest_list_tests
+    DEPENDS test_multiplayer_resilience
+    COMMENT "Verifying Resilience Framework TDD red phase - all tests should fail"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Performance test configuration
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_definitions(test_multiplayer_resilience
+        PRIVATE
+            ENABLE_PERFORMANCE_TESTS=1
+            ENABLE_STRESS_TESTS=1
+    )
+endif()
+
+# Coverage configuration for test analysis
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
+    if(ENABLE_COVERAGE)
+        target_compile_options(test_multiplayer_resilience
+            PRIVATE
+                --coverage
+                -fprofile-arcs
+                -ftest-coverage
+        )
+        target_link_options(test_multiplayer_resilience
+            PRIVATE
+                --coverage
+        )
+    endif()
+endif()
+
+# Sanitizer configuration for debugging
+option(ENABLE_SANITIZERS "Enable sanitizers for testing" OFF)
+if(ENABLE_SANITIZERS)
+    target_compile_options(test_multiplayer_resilience
+        PRIVATE
+            -fsanitize=address
+            -fsanitize=undefined
+            -fno-omit-frame-pointer
+    )
+    target_link_options(test_multiplayer_resilience
+        PRIVATE
+            -fsanitize=address
+            -fsanitize=undefined
+    )
+endif()
+
+# Parallel test execution configuration
+set_property(TEST test_multiplayer_resilience PROPERTY PARALLEL_LEVEL 4)
+
+# Test timeouts for different categories
+gtest_discover_tests(test_multiplayer_resilience
+    PROPERTIES
+        TIMEOUT 30
+    TEST_FILTER "*Basic*;*State*"
+)
+
+gtest_discover_tests(test_multiplayer_resilience
+    PROPERTIES  
+        TIMEOUT 60
+    TEST_FILTER "*Integration*;*EndToEnd*"
+)
+
+gtest_discover_tests(test_multiplayer_resilience
+    PROPERTIES
+        TIMEOUT 120
+    TEST_FILTER "*Performance*;*Stress*"
+)
+
+# Custom test configuration for CI/CD
+if(DEFINED ENV{CI})
+    target_compile_definitions(test_multiplayer_resilience
+        PRIVATE
+            CI_ENVIRONMENT=1
+            REDUCED_TEST_TIMEOUTS=1
+    )
+endif()
+
+# Documentation generation for test cases
+find_program(DOXYGEN_EXECUTABLE doxygen)
+if(DOXYGEN_EXECUTABLE)
+    add_custom_target(generate_test_docs
+        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generating test documentation"
+        VERBATIM
+    )
+endif()

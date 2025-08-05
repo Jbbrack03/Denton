@@ -5,6 +5,56 @@ All notable changes to the Sudachi Multiplayer project will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-08-05
+
+### Added
+- **Phase 8.1: Error Recovery and Resilience Framework** - Production-grade reliability
+  - Circuit Breaker pattern implementation for preventing cascading failures
+  - Connection Recovery Manager with exponential backoff and jitter
+  - Graceful Degradation Manager for automatic fallback between multiplayer modes
+  - Thread-safe implementations with comprehensive synchronization
+  - Self-contained resilience components with minimal external dependencies
+
+- **Phase 8.2: Production Documentation** - Complete user and developer documentation
+  - Comprehensive user guide (installation.md, getting-started.md) for all platforms
+  - Developer guide with architecture overview and integration verification
+  - Security documentation (security-model.md) with OWASP Top 10 compliance
+  - Documentation index (README.md) with complete navigation structure
+  - Integration verification report confirming all components work together
+
+### Enhanced
+- **Build System Integration** - Improved resilience component compilation
+  - Updated common/CMakeLists.txt to include resilience components
+  - Modified error_handling.cpp to remove spdlog dependency for standalone operation
+  - Verified compilation of all resilience components
+
+### Documentation
+- **User Documentation** - Complete guides for end users
+  - Platform-specific installation instructions
+  - Step-by-step getting started walkthrough
+  - Troubleshooting guide for common issues
+  - Supported games documentation
+
+- **Developer Documentation** - Technical guides for contributors
+  - Comprehensive architecture documentation
+  - API reference structure
+  - Building from source instructions
+  - Contributing guidelines
+
+- **Security Documentation** - Security model and best practices
+  - Threat modeling for both multiplayer modes
+  - Security controls and mitigation strategies
+  - Compliance with industry standards
+  - Vulnerability management procedures
+
+### Verified
+- **Integration Testing** - Comprehensive system validation
+  - All multiplayer components properly integrated with main Sudachi system
+  - HLE service bridge successfully connects games to multiplayer backends
+  - Cross-platform compatibility confirmed
+  - Performance requirements met (latency, throughput, memory usage)
+  - End-to-end multiplayer session flow validated
+
 ## [0.5.0] - 2025-08-04
 
 ### Added

@@ -4,7 +4,7 @@
 #include "error_handling.h"
 #include <algorithm>
 #include <thread>
-#include <spdlog/spdlog.h>
+#include <iostream>
 
 namespace Core::Multiplayer {
 
@@ -97,8 +97,8 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         
         // Log the error
-        spdlog::error("[{}] Error {}: {}", error.component, 
-                     static_cast<int>(error.error_code), error.message);
+        std::cerr << "[" << error.component << "] Error " 
+                  << static_cast<int>(error.error_code) << ": " << error.message << std::endl;
         
         // Add to history
         error_history_.push_back(error);

@@ -5,6 +5,10 @@ set(SOURCES
     error_handling.cpp
     network_security.cpp
     secure_network_handler.cpp
+    # Phase 8.1: Error Recovery and Resilience Framework
+    connection_recovery_manager.cpp
+    circuit_breaker.cpp
+    graceful_degradation_manager.cpp
 )
 
 set(HEADERS
@@ -12,6 +16,10 @@ set(HEADERS
     error_handling.h
     network_security.h
     secure_network_handler.h
+    # Phase 8.1: Error Recovery and Resilience Framework
+    connection_recovery_manager.h
+    circuit_breaker.h
+    graceful_degradation_manager.h
 )
 
 add_library(sudachi_multiplayer_common STATIC ${SOURCES} ${HEADERS})
