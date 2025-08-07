@@ -309,7 +309,7 @@ bool Libp2pP2PNetwork::IsConnectedToPeer(const std::string& peer_id) const {
     return connected_peers_.count(peer_id) > 0;
 }
 
-bool Libp2pP2PNetwork::IsConnectedViaaRelay(const std::string& peer_id) const {
+bool Libp2pP2PNetwork::IsConnectedViaRelay(const std::string& peer_id) const {
     std::lock_guard<std::mutex> lock(state_mutex_);
     return relay_connected_peers_.count(peer_id) > 0;
 }

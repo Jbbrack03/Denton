@@ -38,8 +38,8 @@ bool P2PNetwork::IsConnectedToPeer(const std::string& peer_id) const {
     return impl_->IsConnectedToPeer(peer_id);
 }
 
-bool P2PNetwork::IsConnectedViaaRelay(const std::string& peer_id) const {
-    return impl_->IsConnectedViaaRelay(peer_id);
+bool P2PNetwork::IsConnectedViaRelay(const std::string& peer_id) const {
+    return impl_->IsConnectedViaRelay(peer_id);
 }
 
 size_t P2PNetwork::GetConnectionCount() const { return impl_->GetConnectionCount(); }

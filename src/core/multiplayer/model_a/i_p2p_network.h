@@ -42,7 +42,11 @@ public:
     virtual std::future<MultiplayerResult> ConnectToPeer(const std::string& peer_id, const std::string& multiaddr) = 0;
     virtual MultiplayerResult DisconnectFromPeer(const std::string& peer_id) = 0;
     virtual bool IsConnectedToPeer(const std::string& peer_id) const = 0;
-    virtual bool IsConnectedViaaRelay(const std::string& peer_id) const = 0;
+    virtual bool IsConnectedViaRelay(const std::string& peer_id) const = 0;
+    [[deprecated("Use IsConnectedViaRelay")]]
+    virtual bool IsConnectedViaaRelay(const std::string& peer_id) const {
+        return IsConnectedViaRelay(peer_id);
+    }
     virtual size_t GetConnectionCount() const = 0;
     virtual std::vector<std::string> GetConnectedPeers() const = 0;
 

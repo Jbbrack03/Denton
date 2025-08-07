@@ -502,7 +502,7 @@ TEST_F(P2PNetworkTest, FallsBackToRelayWhenDirectConnectionFails) {
 
     // ASSERT
     EXPECT_EQ(result, MultiplayerResult::Success);
-    EXPECT_TRUE(p2p_network->IsConnectedViaaRelay(TEST_PEER_ID));
+    EXPECT_TRUE(p2p_network->IsConnectedViaRelay(TEST_PEER_ID));
     EXPECT_TRUE(relay_connected);
 }
 
