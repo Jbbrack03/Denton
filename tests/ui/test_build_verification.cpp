@@ -6,67 +6,106 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <type_traits>
+
+#if __has_include("src/ui/multiplayer_mode_toggle.h")
+#    define HAS_MULTIPLAYER_MODE_TOGGLE 1
+#    include "src/ui/multiplayer_mode_toggle.h"
+#else
+#    define HAS_MULTIPLAYER_MODE_TOGGLE 0
+#endif
+
+#if __has_include("src/ui/connection_status_overlay.h")
+#    define HAS_CONNECTION_STATUS_OVERLAY 1
+#    include "src/ui/connection_status_overlay.h"
+#else
+#    define HAS_CONNECTION_STATUS_OVERLAY 0
+#endif
+
+#if __has_include("src/ui/error_dialog_manager.h")
+#    define HAS_ERROR_DIALOG_MANAGER 1
+#    include "src/ui/error_dialog_manager.h"
+#else
+#    define HAS_ERROR_DIALOG_MANAGER 0
+#endif
 
 // Simplified test that shows our tests will fail until implementation exists
 TEST(UITestVerification, TestsAreDesignedToFail) {
-    // This test passes to show that our test framework is working
-    EXPECT_TRUE(true);
-    
-    // The actual UI component tests are designed to fail until implementation exists
-    // This is the correct behavior for TDD red phase
+    // Verify that our key UI headers are not yet implemented
+    EXPECT_EQ(0, HAS_MULTIPLAYER_MODE_TOGGLE);
+    EXPECT_EQ(0, HAS_CONNECTION_STATUS_OVERLAY);
+    EXPECT_EQ(0, HAS_ERROR_DIALOG_MANAGER);
 }
 
 TEST(UITestVerification, MultiplayerModeToggleTestsWillFail) {
     // This test documents that our MultiplayerModeToggle tests will fail
     // because the component doesn't exist yet
-    
+
     // When we implement Sudachi::UI::MultiplayerModeToggle, these tests should pass:
     // - InitialState_ShouldShowInternetModeByDefault
     // - ToggleToAdHocMode_ShouldUpdateTextAndBackend
     // - ToggleBackToInternetMode_ShouldRevertState
     // - BackendFailure_ShouldRevertToggleAndShowError
     // - ActiveSession_ShouldPreventModeChange
-    
-    EXPECT_TRUE(true) << "MultiplayerModeToggle component needs to be implemented";
+
+    if (!HAS_MULTIPLAYER_MODE_TOGGLE) {
+        GTEST_SKIP() << "MultiplayerModeToggle component needs to be implemented";
+    }
+#if HAS_MULTIPLAYER_MODE_TOGGLE
+    EXPECT_TRUE((std::is_class<Sudachi::UI::MultiplayerModeToggle>::value));
+#endif
 }
 
 TEST(UITestVerification, ConnectionStatusOverlayTestsWillFail) {
     // This test documents that our ConnectionStatusOverlay tests will fail
     // because the component doesn't exist yet
-    
+
     // When we implement Sudachi::UI::ConnectionStatusOverlay, these tests should pass:
     // - InitialState_ShouldShowDisconnectedStatus
     // - StartConnection_ShouldShowOverlayAndProgress
     // - ConnectionProgress_ShouldUpdateProgressBar
     // - ConnectionSuccess_ShouldShowConnectedThenHide
     // - HighQualityConnection_ShouldShowGreenIndicators
-    
-    EXPECT_TRUE(true) << "ConnectionStatusOverlay component needs to be implemented";
+
+    if (!HAS_CONNECTION_STATUS_OVERLAY) {
+        GTEST_SKIP() << "ConnectionStatusOverlay component needs to be implemented";
+    }
+#if HAS_CONNECTION_STATUS_OVERLAY
+    EXPECT_TRUE((std::is_class<Sudachi::UI::ConnectionStatusOverlay>::value));
+#endif
 }
 
 TEST(UITestVerification, ErrorDialogManagerTestsWillFail) {
     // This test documents that our ErrorDialogManager tests will fail
     // because the component doesn't exist yet
-    
+
     // When we implement Sudachi::UI::ErrorDialogManager, these tests should pass:
     // - SimpleError_ShouldShowErrorDialog
     // - CriticalError_ShouldUseMessageBoxCritical
     // - MultipleErrors_ShouldQueueAndDisplaySequentially
     // - DuplicateErrors_ShouldNotShowDuplicateDialogs
     // - RecoverableError_ShouldProvideRecoveryActions
-    
-    EXPECT_TRUE(true) << "ErrorDialogManager component needs to be implemented";
+
+    if (!HAS_ERROR_DIALOG_MANAGER) {
+        GTEST_SKIP() << "ErrorDialogManager component needs to be implemented";
+    }
+#if HAS_ERROR_DIALOG_MANAGER
+    EXPECT_TRUE((std::is_class<Sudachi::UI::ErrorDialogManager>::value));
+#endif
 }
 
 // Test that shows our mock infrastructure is properly designed
 TEST(UITestVerification, MockInfrastructureIsReady) {
-    // Our mock classes are designed to support dependency injection testing
-    // They provide the interfaces needed for TDD without requiring real Qt widgets
-    
-    EXPECT_TRUE(true) << "Mock infrastructure is ready for TDD implementation";
+    // Verify mock widget header presence without requiring Qt
+#if __has_include("mocks/mock_qt_widgets.h")
+    SUCCEED();
+#else
+    GTEST_SKIP() << "Mock Qt widgets header missing";
+#endif
 }
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
+

@@ -6,18 +6,50 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <type_traits>
+
+#if __has_include("src/ui/multiplayer_mode_toggle.h")
+#    define HAS_MULTIPLAYER_MODE_TOGGLE 1
+#    include "src/ui/multiplayer_mode_toggle.h"
+#else
+#    define HAS_MULTIPLAYER_MODE_TOGGLE 0
+#endif
+
+#if __has_include("src/ui/connection_status_overlay.h")
+#    define HAS_CONNECTION_STATUS_OVERLAY 1
+#    include "src/ui/connection_status_overlay.h"
+#else
+#    define HAS_CONNECTION_STATUS_OVERLAY 0
+#endif
+
+#if __has_include("src/ui/error_dialog_manager.h")
+#    define HAS_ERROR_DIALOG_MANAGER 1
+#    include "src/ui/error_dialog_manager.h"
+#else
+#    define HAS_ERROR_DIALOG_MANAGER 0
+#endif
 
 // We can't include the actual Qt headers without full Qt setup, 
 // but we can verify that our headers exist and have the right structure
 
 // Test that our header files exist and have correct class declarations
 TEST(ImplementationVerification, HeaderFilesExist) {
-    // This test verifies that our implementation files were created
-    // In a full build, these would be compiled into the executable
-    
-    EXPECT_TRUE(true) << "MultiplayerModeToggle header exists";
-    EXPECT_TRUE(true) << "ConnectionStatusOverlay header exists";
-    EXPECT_TRUE(true) << "ErrorDialogManager header exists";
+    if (!HAS_MULTIPLAYER_MODE_TOGGLE)
+        GTEST_SKIP() << "MultiplayerModeToggle header missing";
+    if (!HAS_CONNECTION_STATUS_OVERLAY)
+        GTEST_SKIP() << "ConnectionStatusOverlay header missing";
+    if (!HAS_ERROR_DIALOG_MANAGER)
+        GTEST_SKIP() << "ErrorDialogManager header missing";
+
+#if HAS_MULTIPLAYER_MODE_TOGGLE
+    EXPECT_TRUE((std::is_class<Sudachi::UI::MultiplayerModeToggle>::value));
+#endif
+#if HAS_CONNECTION_STATUS_OVERLAY
+    EXPECT_TRUE((std::is_class<Sudachi::UI::ConnectionStatusOverlay>::value));
+#endif
+#if HAS_ERROR_DIALOG_MANAGER
+    EXPECT_TRUE((std::is_class<Sudachi::UI::ErrorDialogManager>::value));
+#endif
 }
 
 TEST(ImplementationVerification, MultiplayerModeToggleBasicFunctionality) {
@@ -35,7 +67,12 @@ TEST(ImplementationVerification, MultiplayerModeToggleBasicFunctionality) {
     // ✓ Toggle_ShouldHaveAccessibleName
     // ✓ Toggle_ShouldSupportKeyboardNavigation
     
-    EXPECT_TRUE(true) << "MultiplayerModeToggle implements required functionality";
+    if (!HAS_MULTIPLAYER_MODE_TOGGLE)
+        GTEST_SKIP() << "MultiplayerModeToggle not yet implemented";
+
+#if HAS_MULTIPLAYER_MODE_TOGGLE
+    EXPECT_TRUE((std::is_default_constructible<Sudachi::UI::MultiplayerModeToggle>::value));
+#endif
 }
 
 TEST(ImplementationVerification, ConnectionStatusOverlayBasicFunctionality) {
@@ -54,7 +91,12 @@ TEST(ImplementationVerification, ConnectionStatusOverlayBasicFunctionality) {
     // ✓ ShowOverlay_ShouldHaveFadeInAnimation (200ms)
     // ✓ HideOverlay_ShouldHaveFadeOutAnimation (300ms)
     
-    EXPECT_TRUE(true) << "ConnectionStatusOverlay implements required functionality";
+    if (!HAS_CONNECTION_STATUS_OVERLAY)
+        GTEST_SKIP() << "ConnectionStatusOverlay not yet implemented";
+
+#if HAS_CONNECTION_STATUS_OVERLAY
+    EXPECT_TRUE((std::is_default_constructible<Sudachi::UI::ConnectionStatusOverlay>::value));
+#endif
 }
 
 TEST(ImplementationVerification, ErrorDialogManagerBasicFunctionality) {
@@ -74,7 +116,12 @@ TEST(ImplementationVerification, ErrorDialogManagerBasicFunctionality) {
     // ✓ NotificationTimeout_ShouldAutoHideAfterDelay (5s)
     // ✓ ErrorDialog_ShouldHaveAccessibleDescription
     
-    EXPECT_TRUE(true) << "ErrorDialogManager implements required functionality";
+    if (!HAS_ERROR_DIALOG_MANAGER)
+        GTEST_SKIP() << "ErrorDialogManager not yet implemented";
+
+#if HAS_ERROR_DIALOG_MANAGER
+    EXPECT_TRUE((std::is_default_constructible<Sudachi::UI::ErrorDialogManager>::value));
+#endif
 }
 
 TEST(ImplementationVerification, TDDGreenPhaseComplete) {
@@ -93,7 +140,10 @@ TEST(ImplementationVerification, TDDGreenPhaseComplete) {
     // The implementation is intentionally minimal - it does exactly what
     // the tests require and no more, following TDD green phase principles
     
-    EXPECT_TRUE(true) << "TDD Green Phase implementation complete";
+    if (!HAS_MULTIPLAYER_MODE_TOGGLE || !HAS_CONNECTION_STATUS_OVERLAY || !HAS_ERROR_DIALOG_MANAGER)
+        GTEST_SKIP() << "UI components not fully implemented";
+
+    SUCCEED();
 }
 
 int main(int argc, char** argv) {
