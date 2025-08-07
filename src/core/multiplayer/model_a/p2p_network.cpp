@@ -65,8 +65,6 @@ P2PNetwork::P2PNetwork(const P2PNetworkConfig& config) : config_(config) {
 }
 
 MultiplayerResult P2PNetwork::Start() {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
 #ifdef SUDACHI_TESTING_ENABLED
     try {
         mock_host_->start();
@@ -81,8 +79,6 @@ MultiplayerResult P2PNetwork::Start() {
 }
 
 MultiplayerResult P2PNetwork::Stop() {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
     try {
         mock_host_->stop();
         return MultiplayerResult::Success;
@@ -92,22 +88,23 @@ MultiplayerResult P2PNetwork::Stop() {
 }
 
 MultiplayerResult P2PNetwork::Shutdown() {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
     try {
         // Disconnect all peers
         auto peers = mock_host_->getConnectedPeers();
         for (const auto& peer_id : peers) {
             mock_host_->disconnect(peer_id);
         }
-        
+
         // Stop the host
         mock_host_->stop();
-        
-        // Clear state
-        connected_peers_.clear();
-        relay_connected_peers_.clear();
-        
+
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            // Clear state
+            connected_peers_.clear();
+            relay_connected_peers_.clear();
+        }
+
         return MultiplayerResult::Success;
     } catch (const std::exception&) {
         return MultiplayerResult::NetworkError;
@@ -123,36 +120,35 @@ std::string P2PNetwork::GetPeerId() const {
 }
 
 MultiplayerResult P2PNetwork::ConnectToPeer(const std::string& peer_id, const std::string& multiaddr) {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
-    // Check connection limit
+    // Check connection limit without holding state lock
     if (mock_host_->getConnectionCount() >= config_.max_connections) {
         return MultiplayerResult::ConnectionLimitReached;
     }
-    
+
     // Try direct connection first
     auto direct_result = AttemptDirectConnection(peer_id, multiaddr);
     if (direct_result == MultiplayerResult::Success) {
         return direct_result;
     }
-    
+
     // Fall back to relay if enabled and direct connection failed
     if (config_.enable_relay) {
         return AttemptRelayConnection(peer_id);
     }
-    
+
     return direct_result;
 }
 
 MultiplayerResult P2PNetwork::DisconnectFromPeer(const std::string& peer_id) {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
     try {
         if (mock_host_->isConnected(peer_id)) {
             mock_host_->disconnect(peer_id);
-            connected_peers_.erase(peer_id);
-            relay_connected_peers_.erase(peer_id);
-            
+            {
+                std::lock_guard<std::mutex> lock(state_mutex_);
+                connected_peers_.erase(peer_id);
+                relay_connected_peers_.erase(peer_id);
+            }
+
             if (on_peer_disconnected_) {
                 on_peer_disconnected_(peer_id);
             }
@@ -164,12 +160,10 @@ MultiplayerResult P2PNetwork::DisconnectFromPeer(const std::string& peer_id) {
 }
 
 bool P2PNetwork::IsConnectedToPeer(const std::string& peer_id) const {
-    std::lock_guard<std::mutex> lock(state_mutex_);
     return mock_host_->isConnected(peer_id);
 }
 
 bool P2PNetwork::IsConnectedViaaRelay(const std::string& peer_id) const {
-    std::lock_guard<std::mutex> lock(state_mutex_);
     return mock_circuit_relay_->isConnectedViaRelay(peer_id);
 }
 
@@ -182,12 +176,10 @@ std::vector<std::string> P2PNetwork::GetConnectedPeers() const {
 }
 
 MultiplayerResult P2PNetwork::SendMessage(const std::string& peer_id, const std::string& protocol, const std::vector<uint8_t>& data) {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
     if (!mock_host_->isConnected(peer_id)) {
         return MultiplayerResult::NotConnected;
     }
-    
+
     try {
         bool success = mock_host_->sendMessage(peer_id, protocol, data);
         if (success) {
@@ -201,17 +193,15 @@ MultiplayerResult P2PNetwork::SendMessage(const std::string& peer_id, const std:
 }
 
 MultiplayerResult P2PNetwork::BroadcastMessage(const std::string& protocol, const std::vector<uint8_t>& data) {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
     try {
         mock_host_->broadcast(protocol, data);
-        
+
         // Record metrics for all connected peers
         auto peers = mock_host_->getConnectedPeers();
         for (const auto& peer_id : peers) {
             mock_performance_monitor_->recordMessageSent(peer_id, data.size());
         }
-        
+
         return MultiplayerResult::Success;
     } catch (const std::exception&) {
         return MultiplayerResult::NetworkError;
@@ -219,15 +209,15 @@ MultiplayerResult P2PNetwork::BroadcastMessage(const std::string& protocol, cons
 }
 
 void P2PNetwork::RegisterProtocolHandler(const std::string& protocol) {
-    std::lock_guard<std::mutex> lock(state_mutex_);
-    
     // Create a protocol handler that calls our HandleIncomingMessage
     auto handler = [this](const std::string& peer_id, const std::vector<uint8_t>& data) {
         // This would normally be called by libp2p, but for tests we simulate it
         // The test manually calls HandleIncomingMessage
     };
-    
+
     mock_host_->setProtocolHandler(protocol, handler);
+
+    std::lock_guard<std::mutex> lock(state_mutex_);
     protocol_handlers_[protocol] = handler;
 }
 
@@ -341,12 +331,15 @@ int P2PNetwork::ConvertToMockNATType(NATType nat_type) const {
 MultiplayerResult P2PNetwork::AttemptDirectConnection(const std::string& peer_id, const std::string& multiaddr) {
     try {
         mock_host_->connect(multiaddr);
-        connected_peers_.insert(peer_id);
-        
+        {
+            std::lock_guard<std::mutex> lock(state_mutex_);
+            connected_peers_.insert(peer_id);
+        }
+
         // Record performance metrics
         auto connection_time = std::chrono::milliseconds(100); // Simulated connection time
         mock_performance_monitor_->recordConnectionEstablished(peer_id, connection_time);
-        
+
         if (on_peer_connected_) {
             on_peer_connected_(peer_id);
         }
@@ -364,10 +357,13 @@ MultiplayerResult P2PNetwork::AttemptRelayConnection(const std::string& peer_id)
     try {
         std::string relay_addr = mock_circuit_relay_->selectBestRelay(peer_id);
         bool success = mock_circuit_relay_->connectViaRelay(peer_id, relay_addr);
-        
+
         if (success) {
-            relay_connected_peers_.insert(peer_id);
-            
+            {
+                std::lock_guard<std::mutex> lock(state_mutex_);
+                relay_connected_peers_.insert(peer_id);
+            }
+
             if (on_relay_connected_) {
                 on_relay_connected_(peer_id, relay_addr);
             }
