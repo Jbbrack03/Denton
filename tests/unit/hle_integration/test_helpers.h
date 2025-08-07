@@ -39,6 +39,8 @@ public:
     virtual ErrorCode ReceivePacket(std::vector<uint8_t>& out_data, uint8_t& out_node_id) = 0;
 
     virtual ErrorCode SetAdvertiseData(const std::vector<uint8_t>& data) = 0;
+    virtual ErrorCode SetStationAcceptPolicy(Service::LDN::AcceptPolicy policy) = 0;
+    virtual ErrorCode AddAcceptFilterEntry(const Service::LDN::MacAddress& mac) = 0;
     virtual ErrorCode GetSecurityParameter(Service::LDN::SecurityParameter& out_param) = 0;
     virtual ErrorCode GetDisconnectReason(Service::LDN::DisconnectReason& out_reason) = 0;
     virtual ErrorCode GetIpv4Address(Service::LDN::Ipv4Address& out_address,
@@ -70,6 +72,8 @@ public:
     MOCK_METHOD(ErrorCode, SendPacket, (const std::vector<uint8_t>&, uint8_t), (override));
     MOCK_METHOD(ErrorCode, ReceivePacket, (std::vector<uint8_t>&, uint8_t&), (override));
     MOCK_METHOD(ErrorCode, SetAdvertiseData, (const std::vector<uint8_t>&), (override));
+    MOCK_METHOD(ErrorCode, SetStationAcceptPolicy, (Service::LDN::AcceptPolicy), (override));
+    MOCK_METHOD(ErrorCode, AddAcceptFilterEntry, (const Service::LDN::MacAddress&), (override));
     MOCK_METHOD(ErrorCode, GetSecurityParameter, (Service::LDN::SecurityParameter&), (override));
     MOCK_METHOD(ErrorCode, GetDisconnectReason, (Service::LDN::DisconnectReason&), (override));
     MOCK_METHOD(ErrorCode, GetIpv4Address,
@@ -194,6 +198,14 @@ public:
         if (data.size() > Service::LDN::AdvertiseDataSizeMax)
             return ErrorCode::MessageTooLarge;
         advertise_data_ = data;
+        return ErrorCode::Success;
+    }
+
+    ErrorCode SetStationAcceptPolicy(Service::LDN::AcceptPolicy) override {
+        return ErrorCode::Success;
+    }
+
+    ErrorCode AddAcceptFilterEntry(const Service::LDN::MacAddress&) override {
         return ErrorCode::Success;
     }
 

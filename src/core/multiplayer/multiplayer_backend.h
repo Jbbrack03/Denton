@@ -21,6 +21,8 @@ class SecurityParameter;
 enum class DisconnectReason : uint32_t;
 class Ipv4Address;
 class NetworkConfig;
+enum class AcceptPolicy : uint8_t;
+class MacAddress;
 }
 
 namespace Core::Multiplayer::HLE {
@@ -63,6 +65,8 @@ public:
 
     // Configuration and status
     virtual ErrorCode SetAdvertiseData(const std::vector<uint8_t>& data) = 0;
+    virtual ErrorCode SetStationAcceptPolicy(Service::LDN::AcceptPolicy policy) = 0;
+    virtual ErrorCode AddAcceptFilterEntry(const Service::LDN::MacAddress& mac) = 0;
     virtual ErrorCode GetSecurityParameter(Service::LDN::SecurityParameter& out_param) = 0;
     virtual ErrorCode GetDisconnectReason(Service::LDN::DisconnectReason& out_reason) = 0;
 

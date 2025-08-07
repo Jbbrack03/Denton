@@ -5,6 +5,7 @@
 
 #include <string>
 #include <chrono>
+#include <memory>
 
 #include "common/error_codes.h"
 
@@ -39,5 +40,8 @@ public:
     // Get suggested retry delay for recoverable errors
     virtual std::chrono::milliseconds GetRetryDelay(ErrorCode error) = 0;
 };
+
+// Factory function to create a concrete mapper instance
+std::unique_ptr<ErrorCodeMapper> CreateErrorCodeMapper();
 
 } // namespace Core::Multiplayer::HLE

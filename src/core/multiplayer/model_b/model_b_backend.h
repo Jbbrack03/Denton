@@ -40,6 +40,8 @@ public:
     ErrorCode ReceivePacket(std::vector<uint8_t>& out_data, uint8_t& out_node_id) override;
 
     ErrorCode SetAdvertiseData(const std::vector<uint8_t>& data) override;
+    ErrorCode SetStationAcceptPolicy(Service::LDN::AcceptPolicy policy) override;
+    ErrorCode AddAcceptFilterEntry(const Service::LDN::MacAddress& mac) override;
     ErrorCode GetSecurityParameter(Service::LDN::SecurityParameter& out_param) override;
     ErrorCode GetDisconnectReason(Service::LDN::DisconnectReason& out_reason) override;
 

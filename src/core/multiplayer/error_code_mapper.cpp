@@ -5,8 +5,9 @@
 
 #include <algorithm>
 #include <array>
-#include <span>
 #include <string_view>
+#include <unordered_map>
+#include <memory>
 
 #include "sudachi/src/core/hle/result.h"
 #include "sudachi/src/core/hle/service/ldn/ldn_results.h"
@@ -197,6 +198,55 @@ constexpr std::array<LdnDesc, 18> ldn_result_descriptions_{
       "Local communication version too high"},
      {Service::LDN::ResultInternalError, "Internal LDN error occurred"}}};
 
+// Helper to build unordered_maps for fast lookups
+const std::unordered_map<ErrorCode, Service::LDN::Result>& GetMultiplayerToLdnMap() {
+  static const std::unordered_map<ErrorCode, Service::LDN::Result> map = [] {
+    std::unordered_map<ErrorCode, Service::LDN::Result> m;
+    m.reserve(multiplayer_to_ldn_map_.size());
+    for (const auto& e : multiplayer_to_ldn_map_) {
+      m.emplace(e.error, e.result);
+    }
+    return m;
+  }();
+  return map;
+}
+
+const std::unordered_map<Service::LDN::Result, ErrorCode>& GetLdnToMultiplayerMap() {
+  static const std::unordered_map<Service::LDN::Result, ErrorCode> map = [] {
+    std::unordered_map<Service::LDN::Result, ErrorCode> m;
+    m.reserve(ldn_to_multiplayer_map_.size());
+    for (const auto& e : ldn_to_multiplayer_map_) {
+      m.emplace(e.result, e.error);
+    }
+    return m;
+  }();
+  return map;
+}
+
+const std::unordered_map<ErrorCode, std::string_view>& GetErrorDescriptions() {
+  static const std::unordered_map<ErrorCode, std::string_view> map = [] {
+    std::unordered_map<ErrorCode, std::string_view> m;
+    m.reserve(error_descriptions_.size());
+    for (const auto& e : error_descriptions_) {
+      m.emplace(e.error, e.description);
+    }
+    return m;
+  }();
+  return map;
+}
+
+const std::unordered_map<Service::LDN::Result, std::string_view>& GetLdnResultDescriptions() {
+  static const std::unordered_map<Service::LDN::Result, std::string_view> map = [] {
+    std::unordered_map<Service::LDN::Result, std::string_view> m;
+    m.reserve(ldn_result_descriptions_.size());
+    for (const auto& e : ldn_result_descriptions_) {
+      m.emplace(e.result, e.description);
+    }
+    return m;
+  }();
+  return map;
+}
+
 } // namespace
 
 /**
@@ -207,49 +257,37 @@ public:
   ConcreteErrorCodeMapper() = default;
 
   Service::LDN::Result MapToLdnResult(ErrorCode error) override {
-    std::span<const ErrorToLdn> map{multiplayer_to_ldn_map_};
-    auto it =
-        std::find_if(map.begin(), map.end(), [error](const ErrorToLdn &entry) {
-          return entry.error == error;
-        });
+    const auto& map = GetMultiplayerToLdnMap();
+    auto it = map.find(error);
     if (it != map.end()) {
-      return it->result;
+      return it->second;
     }
     return Service::LDN::ResultInternalError;
   }
 
   ErrorCode MapFromLdnResult(Service::LDN::Result result) override {
-    std::span<const LdnToError> map{ldn_to_multiplayer_map_};
-    auto it =
-        std::find_if(map.begin(), map.end(), [result](const LdnToError &entry) {
-          return entry.result == result;
-        });
+    const auto& map = GetLdnToMultiplayerMap();
+    auto it = map.find(result);
     if (it != map.end()) {
-      return it->error;
+      return it->second;
     }
     return ErrorCode::InternalError;
   }
 
   std::string GetErrorDescription(ErrorCode error) override {
-    std::span<const ErrorDesc> map{error_descriptions_};
-    auto it =
-        std::find_if(map.begin(), map.end(), [error](const ErrorDesc &entry) {
-          return entry.error == error;
-        });
+    const auto& map = GetErrorDescriptions();
+    auto it = map.find(error);
     if (it != map.end()) {
-      return std::string{it->description};
+      return std::string{it->second};
     }
     return "Unknown multiplayer error";
   }
 
   std::string GetLdnResultDescription(Service::LDN::Result result) override {
-    std::span<const LdnDesc> map{ldn_result_descriptions_};
-    auto it =
-        std::find_if(map.begin(), map.end(), [result](const LdnDesc &entry) {
-          return entry.result == result;
-        });
+    const auto& map = GetLdnResultDescriptions();
+    auto it = map.find(result);
     if (it != map.end()) {
-      return std::string{it->description};
+      return std::string{it->second};
     }
     return "Unknown LDN result";
   }
@@ -304,5 +342,9 @@ public:
     }
   }
 };
+
+std::unique_ptr<ErrorCodeMapper> CreateErrorCodeMapper() {
+  return std::make_unique<ConcreteErrorCodeMapper>();
+}
 
 } // namespace Core::Multiplayer::HLE

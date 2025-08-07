@@ -82,6 +82,14 @@ ErrorCode ModelABackend::SetAdvertiseData(const std::vector<uint8_t>&) {
     return ErrorCode::NotImplemented;
 }
 
+ErrorCode ModelABackend::SetStationAcceptPolicy(Service::LDN::AcceptPolicy) {
+    return ErrorCode::NotImplemented;
+}
+
+ErrorCode ModelABackend::AddAcceptFilterEntry(const Service::LDN::MacAddress&) {
+    return ErrorCode::NotImplemented;
+}
+
 ErrorCode ModelABackend::GetSecurityParameter(Service::LDN::SecurityParameter&) {
     return ErrorCode::NotImplemented;
 }
