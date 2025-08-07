@@ -94,31 +94,40 @@ public:
     }
 
     void ReportError(const ErrorInfo& error) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        
-        // Log the error
-        std::cerr << "[" << error.component << "] Error " 
-                  << static_cast<int>(error.error_code) << ": " << error.message << std::endl;
-        
-        // Add to history
-        error_history_.push_back(error);
-        if (error_history_.size() > max_history_size_) {
-            error_history_.erase(error_history_.begin());
+        ErrorCallback on_error_copy;
+        bool auto_recovery_copy;
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+
+            // Log the error
+            std::cerr << "[" << error.component << "] Error "
+                      << static_cast<int>(error.error_code) << ": " << error.message << std::endl;
+
+            // Add to history
+            error_history_.push_back(error);
+            if (error_history_.size() > max_history_size_) {
+                error_history_.erase(error_history_.begin());
+            }
+
+            // Update statistics
+            error_stats_[error.error_code]++;
+
+            // Copy state needed after releasing the lock
+            on_error_copy = on_error_;
+            auto_recovery_copy = auto_recovery_enabled_;
         }
-        
-        // Update statistics
-        error_stats_[error.error_code]++;
-        
-        // Trigger callbacks
-        if (on_error_) {
-            on_error_(error);
+
+        // Trigger callbacks outside the lock
+        if (on_error_copy) {
+            on_error_copy(error);
         }
-        
-        // Show notification
+
+        // Show notification outside the lock
         ShowNotification(error);
-        
-        // Attempt auto-recovery if enabled
-        if (auto_recovery_enabled_) {
+
+        // Attempt auto-recovery outside the lock if enabled
+        if (auto_recovery_copy) {
             AttemptRecovery(error);
         }
     }
