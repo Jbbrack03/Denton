@@ -113,7 +113,8 @@ size_t TxtRecordBuilder::GetTotalSize() const {
 
 std::vector<uint8_t> TxtRecordBuilder::ToBinary() const {
     std::vector<uint8_t> data;
-    
+    data.reserve(impl_->total_size);
+
     for (const auto& record : impl_->records) {
         std::string record_str = record.first + "=" + record.second;
         if (record_str.length() > 255) {
@@ -147,12 +148,17 @@ TxtRecordBuilder TxtRecordBuilder::CreateGameSessionTxtRecords(const GameSession
     return std::move(builder);
 }
 
-TxtRecordBuilder TxtRecordBuilder::FromMap(const std::unordered_map<std::string, std::string>& records) {
+std::pair<ErrorCode, TxtRecordBuilder> TxtRecordBuilder::FromMap(
+    const std::unordered_map<std::string, std::string>& records) {
     TxtRecordBuilder builder;
+    builder.impl_->records.reserve(records.size());
     for (const auto& record : records) {
-        builder.AddRecord(record.first, record.second);
+        ErrorCode ec = builder.AddRecord(record.first, record.second);
+        if (ec != ErrorCode::Success) {
+            return {ec, TxtRecordBuilder{}};
+        }
     }
-    return std::move(builder);
+    return {ErrorCode::Success, std::move(builder)};
 }
 
 // TxtRecordParser implementation
@@ -186,39 +192,57 @@ bool TxtRecordParser::ParseBinaryData(const std::vector<uint8_t>& binary_data) {
     if (binary_data.empty()) {
         return false;
     }
-    
+
+    impl_->records.clear();
+    impl_->records.reserve(binary_data.size() / 2);
+
     size_t offset = 0;
+    size_t total_size = 0;
     while (offset < binary_data.size()) {
         if (offset >= binary_data.size()) {
             return false;
         }
-        
+
         uint8_t length = binary_data[offset];
         if (length == 0) {
             offset++;
             continue; // Skip zero-length records
         }
-        
+
         if (offset + 1 + length > binary_data.size()) {
             return false; // Truncated record
         }
-        
-        std::string record_data(binary_data.begin() + offset + 1, 
+
+        total_size += length + 1;
+        if (total_size > TxtRecordConstants::kMaxTotalSize) {
+            return false;
+        }
+
+        std::string record_data(binary_data.begin() + offset + 1,
                                binary_data.begin() + offset + 1 + length);
-        
+
         // Find '=' separator
         size_t equals_pos = record_data.find('=');
         if (equals_pos == std::string::npos) {
             return false; // Missing separator
         }
-        
+
         std::string key = record_data.substr(0, equals_pos);
         std::string value = record_data.substr(equals_pos + 1);
-        
-        impl_->records[key] = value;
+
+        if (!TxtRecordValidator::IsValidKey(key) ||
+            !TxtRecordValidator::IsValidValue(key, value)) {
+            return false;
+        }
+
+        auto [it, inserted] = impl_->records.emplace(std::move(key), std::move(value));
+        if (!inserted) {
+            return false; // Duplicate key
+        }
+
         offset += length + 1;
     }
-    
+
     return true;
 }
 
@@ -247,8 +271,30 @@ TxtRecordParser TxtRecordParser::ParseTxtRecords(const std::vector<uint8_t>& bin
     return TxtRecordParser(binary_data);
 }
 
-TxtRecordParser TxtRecordParser::FromMap(const std::unordered_map<std::string, std::string>& records) {
-    return TxtRecordParser(records);
+std::pair<ErrorCode, TxtRecordParser> TxtRecordParser::FromMap(
+    const std::unordered_map<std::string, std::string>& records) {
+    TxtRecordParser parser(std::unordered_map<std::string, std::string>{});
+    parser.impl_->records.reserve(records.size());
+
+    size_t total_size = 0;
+    for (const auto& record : records) {
+        if (!TxtRecordValidator::IsValidKey(record.first) ||
+            !TxtRecordValidator::IsValidValue(record.first, record.second)) {
+            return {ErrorCode::InvalidParameter, TxtRecordParser(std::unordered_map<std::string, std::string>{})};
+        }
+
+        size_t record_size = record.first.length() + record.second.length() + 2;
+        if (record_size > TxtRecordConstants::kMaxRecordLength ||
+            total_size + record_size > TxtRecordConstants::kMaxTotalSize) {
+            return {ErrorCode::InvalidParameter, TxtRecordParser(std::unordered_map<std::string, std::string>{})};
+        }
+
+        parser.impl_->records.emplace(record.first, record.second);
+        total_size += record_size;
+    }
+
+    parser.impl_->is_valid = true;
+    return {ErrorCode::Success, std::move(parser)};
 }
 
 // TxtRecordValidator implementation

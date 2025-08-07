@@ -229,7 +229,18 @@ TEST_F(MdnsTxtRecordsTest, ParseTxtRecordsHandlesMalformedData) {
         {0x05, 0x67, 0x61}, // Truncated record
         {0x00}, // Zero-length record only
         {}, // Empty data
-        {0x10, 0x67, 0x61, 0x6D, 0x65, 0x5F, 0x69, 0x64} // Missing value separator
+        {0x10, 0x67, 0x61, 0x6D, 0x65, 0x5F, 0x69, 0x64}, // Missing value separator
+        CreateTestBinaryTxtRecords({{"dup", "1"}, {"dup", "2"}}), // Duplicate keys
+        [] {
+            std::vector<std::pair<std::string, std::string>> records;
+            records.reserve(257);
+            for (int i = 0; i < 257; ++i) {
+                std::string key = "k" + std::to_string(i);
+                size_t value_len = 254 - key.length();
+                records.emplace_back(key, std::string(value_len, 'a'));
+            }
+            return CreateTestBinaryTxtRecords(records);
+        }()
     };
     
     // ACT & ASSERT
@@ -316,10 +327,11 @@ TEST_F(MdnsTxtRecordsTest, ValidateGameSessionTxtRecordsValidatesRequiredFields)
     
     // ACT & ASSERT
     for (size_t i = 0; i < test_cases.size(); ++i) {
-        auto parser = TxtRecordParser::FromMap(test_cases[i]);
+        auto [error, parser] = TxtRecordParser::FromMap(test_cases[i]);
+        EXPECT_EQ(error, ErrorCode::Success);
         auto result = TxtRecordValidator::ValidateGameSessionTxtRecords(parser);
-        
-        EXPECT_EQ(result == ErrorCode::Success, expected_results[i]) 
+
+        EXPECT_EQ(result == ErrorCode::Success, expected_results[i])
             << "Test case " << i << " validation result mismatch";
     }
 }
