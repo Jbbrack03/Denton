@@ -6,39 +6,9 @@
 #include <gmock/gmock.h>
 #include <vector>
 #include <string>
-#include "core/multiplayer/common/error_codes.h"
+#include "core/multiplayer/common/graceful_degradation_manager.h"
 
 namespace Core::Multiplayer {
-
-/**
- * Multiplayer mode enumeration
- */
-enum class MultiplayerMode {
-    Internet,
-    Adhoc,
-    Offline
-};
-
-/**
- * Backend health status enumeration
- */
-enum class BackendHealthStatus {
-    Healthy,
-    Degraded,
-    Unhealthy,
-    Unknown
-};
-
-/**
- * Health metrics structure
- */
-struct HealthMetrics {
-    double uptime_percentage;
-    size_t total_health_checks;
-    size_t failed_health_checks;
-    double average_response_time_ms;
-    std::chrono::steady_clock::time_point last_check_time;
-};
 
 /**
  * Mock multiplayer backend for testing graceful degradation
