@@ -79,9 +79,11 @@ struct GameSessionInfo {
  * - Multi-interface support (IPv4 and IPv6)
  * - Thread-safe operations
  * - Automatic service refresh and cleanup
- * 
- * This is a stub implementation - all methods will fail until implemented
- * following TDD red phase methodology.
+ *
+ * The implementation uses the public domain mdns library (externals/mdns)
+ * and provides asynchronous discovery and advertisement loops for both
+ * IPv4 and IPv6.  All network interaction happens on worker threads while
+ * the public API remains thread safe.
  */
 class MdnsDiscovery {
 public:
