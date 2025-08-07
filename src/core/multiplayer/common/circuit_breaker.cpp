@@ -36,16 +36,16 @@ public:
     ~Impl() = default;
 
     ErrorCode ExecuteInternal(std::function<ErrorCode()> operation) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        
         auto start_time = std::chrono::steady_clock::now();
-        
+
+        std::unique_lock<std::mutex> lock(mutex_);
+
         // Check if circuit is open
         if (state_ == CircuitBreakerState::Open) {
             // Check if enough time has passed to transition to half-open
             auto time_since_open = std::chrono::duration_cast<std::chrono::milliseconds>(
                 start_time - last_state_change_);
-            
+
             if (time_since_open.count() >= config_.timeout_duration_ms) {
                 TransitionToHalfOpen();
             } else {
@@ -53,7 +53,7 @@ public:
                 return ErrorCode::ServiceUnavailable;
             }
         }
-        
+
         // If half-open, only allow limited concurrent calls
         if (state_ == CircuitBreakerState::HalfOpen) {
             if (half_open_calls_ >= config_.max_concurrent_half_open_calls) {
@@ -62,34 +62,39 @@ public:
             }
             half_open_calls_++;
         }
-        
+
         metrics_.total_requests++;
-        
-        // Execute operation
+
+        // Release the lock while executing the user operation
+        lock.unlock();
+
         ErrorCode result;
         try {
             result = operation();
         } catch (...) {
             result = ErrorCode::InternalError;
         }
-        
+
         auto end_time = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        
+
+        // Reacquire lock to update metrics and state
+        lock.lock();
+
         // Update response time metrics
         UpdateResponseTimeMetrics(duration.count());
-        
+
         // Handle result
         if (result == ErrorCode::Success) {
             OnSuccess();
         } else {
             OnFailure(result);
         }
-        
+
         if (state_ == CircuitBreakerState::HalfOpen) {
             half_open_calls_--;
         }
-        
+
         return result;
     }
 
@@ -173,6 +178,7 @@ public:
     }
 
 private:
+    // These functions expect mutex_ to be locked by the caller
     void OnSuccess() {
         metrics_.successful_requests++;
         consecutive_failures_ = 0;
