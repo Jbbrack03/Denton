@@ -34,6 +34,7 @@ set(UNIT_TEST_SOURCES
     unit/test_relay_client.cpp
     unit/test_configuration.cpp
     unit/test_error_handling.cpp
+    unit/test_connection_recovery_manager.cpp
 )
 
 # Integration tests

@@ -6,6 +6,7 @@
 #include <random>
 #include <algorithm>
 #include <iostream>
+#include <atomic>
 
 namespace Core::Multiplayer {
 
@@ -15,7 +16,7 @@ public:
     Impl(const RecoveryConfig& config, MockNetworkConnection* connection)
         : config_(config), connection_(connection), state_(RecoveryState::Idle),
           current_attempt_(0), listener_(nullptr),
-          rng_(std::random_device{}()) {
+          rng_(std::random_device{}()), attempt_count_(0) {
         
         start_time_ = std::chrono::steady_clock::now();
         
@@ -232,9 +233,8 @@ private:
         // For minimal implementation, simulate connection attempts
         // In real implementation, this would call connection_->Connect()
         // For now, simulate 50% success rate for recovery attempts
-        static int attempt_count = 0;
-        attempt_count++;
-        return (attempt_count % 2) == 0;
+        int attempt = ++attempt_count_;
+        return (attempt % 2) == 0;
     }
 
     void NotifyRecoveryAttempt() {
@@ -276,6 +276,7 @@ private:
     std::thread recovery_thread_;
     std::unordered_map<ErrorCode, MockRecoveryStrategy*> custom_strategies_;
     std::mt19937 rng_;
+    std::atomic<int> attempt_count_;
 };
 
 // ConnectionRecoveryManager implementation
