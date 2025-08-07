@@ -3,116 +3,294 @@
 
 #include "mdns_discovery.h"
 #include "mdns_txt_records.h"
-#include <thread>
-#include <mutex>
+
+#include "externals/mdns/mdns.h"
+
 #include <algorithm>
-#include <unordered_map>
 #include <atomic>
+#include <chrono>
+#include <mutex>
 #include <sstream>
-#include <sys/socket.h>
+#include <thread>
+#include <unordered_map>
 
 namespace Core::Multiplayer::ModelB {
 
+// ---------------------------------------------------------------------------
 // mDNS constants
+// ---------------------------------------------------------------------------
 namespace MdnsConstants {
-    constexpr const char* kMulticastIPv4 = "224.0.0.251";
-    constexpr const char* kMulticastIPv6 = "ff02::fb";
+constexpr const char* kMulticastIPv4 = "224.0.0.251";
+constexpr const char* kMulticastIPv6 = "ff02::fb";
 }
 
-// MdnsDiscovery implementation
+// ---------------------------------------------------------------------------
+// Implementation details
+// ---------------------------------------------------------------------------
 struct MdnsDiscovery::Impl {
-    // For minimal implementation, we'll just store state and return hardcoded values
-    DiscoveryState state = DiscoveryState::Stopped;
-    bool is_running = false;
-    bool is_advertising = false;
-    
-    std::unordered_map<std::string, GameSessionInfo> discovered_services; // keyed by host IP
-    std::vector<std::string> active_interfaces = {"eth0", "wlan0"};
-    
+    // Dependencies (mocked in tests)
+    std::shared_ptr<MockMdnsSocket> socket;
+    std::shared_ptr<MockNetworkInterfaceProvider> interface_provider;
+    std::shared_ptr<MockMdnsConfig> config;
+
+    // Service state
+    DiscoveryState state{DiscoveryState::Stopped};
+    bool is_running{false};
+    bool is_advertising{false};
+
+    // Discovered and advertised sessions
+    std::unordered_map<std::string, GameSessionInfo> discovered_services; // keyed by host ip
+    GameSessionInfo advertised_session;
+
+    // Active network interfaces
+    std::vector<std::string> active_interfaces;
+
+    // Callbacks
     std::function<void(const GameSessionInfo&)> on_service_discovered;
     std::function<void(const std::string&)> on_service_removed;
     std::function<void()> on_discovery_timeout;
     std::function<void(ErrorCode, const std::string&)> on_error;
-    
+
+    // Concurrency primitives
     mutable std::mutex mutex;
+    std::thread query_thread;
+    std::thread advertise_thread;
     std::thread heartbeat_thread;
+    std::atomic<bool> query_running{false};
+    std::atomic<bool> advertise_running{false};
     std::atomic<bool> heartbeat_running{false};
+
+    std::chrono::steady_clock::time_point discovery_start;
 };
 
+// ---------------------------------------------------------------------------
+// Construction / Destruction
+// ---------------------------------------------------------------------------
 MdnsDiscovery::MdnsDiscovery(std::shared_ptr<MockMdnsSocket> socket,
                              std::shared_ptr<MockNetworkInterfaceProvider> interface_provider,
                              std::shared_ptr<MockMdnsConfig> config)
     : impl_(std::make_unique<Impl>()) {
-    // Minimal implementation - just initialize with default state
+    impl_->socket = std::move(socket);
+    impl_->interface_provider = std::move(interface_provider);
+    impl_->config = std::move(config);
 }
 
 MdnsDiscovery::~MdnsDiscovery() {
-    if (impl_->is_running) {
-        StopDiscovery();
-    }
-    if (impl_->is_advertising) {
-        StopAdvertising();
-    }
     StopHeartbeat();
+    StopDiscovery();
+    StopAdvertising();
+
+    if (impl_->socket) {
+        // Leave multicast groups and close socket
+        impl_->socket->LeaveMulticastGroup(MdnsConstants::kMulticastIPv4);
+        if (impl_->config && impl_->config->IsIPv6Enabled()) {
+            impl_->socket->LeaveMulticastGroup(MdnsConstants::kMulticastIPv6);
+        }
+        impl_->socket->CloseSocket();
+    }
 }
 
+// ---------------------------------------------------------------------------
+// Initialization
+// ---------------------------------------------------------------------------
 ErrorCode MdnsDiscovery::Initialize() {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    
+
     impl_->state = DiscoveryState::Initializing;
-    
-    // Minimal implementation - always succeed for tests
+
+    // Create sockets for IPv4 and IPv6
+    if (!impl_->socket->CreateSocket(AF_INET, "")) {
+        impl_->state = DiscoveryState::Failed;
+        return ErrorCode::NetworkError;
+    }
+
+    if (impl_->config->IsIPv6Enabled()) {
+        if (!impl_->socket->CreateSocket(AF_INET6, "")) {
+            impl_->state = DiscoveryState::Failed;
+            return ErrorCode::NetworkError;
+        }
+    }
+
+    // Bind to allowed interfaces
+    impl_->active_interfaces.clear();
+    auto interfaces = impl_->interface_provider->GetActiveInterfaces();
+    auto allowed = impl_->config->GetAllowedInterfaces();
+
+    for (const auto& iface : interfaces) {
+        if (!iface.is_active) {
+            continue;
+        }
+        if (!allowed.empty() &&
+            std::find(allowed.begin(), allowed.end(), iface.name) == allowed.end()) {
+            continue;
+        }
+        if (!impl_->interface_provider->IsInterfaceUsable(iface.name)) {
+            continue;
+        }
+
+        if (!impl_->socket->BindToInterface(iface.name)) {
+            impl_->state = DiscoveryState::Failed;
+            return ErrorCode::NetworkError;
+        }
+
+        impl_->active_interfaces.push_back(iface.name);
+    }
+
+    // Join multicast groups
+    if (!impl_->socket->JoinMulticastGroup(MdnsConstants::kMulticastIPv4)) {
+        impl_->state = DiscoveryState::Failed;
+        return ErrorCode::NetworkError;
+    }
+
+    if (impl_->config->IsIPv6Enabled()) {
+        if (!impl_->socket->JoinMulticastGroup(MdnsConstants::kMulticastIPv6)) {
+            impl_->state = DiscoveryState::Failed;
+            return ErrorCode::NetworkError;
+        }
+    }
+
     impl_->state = DiscoveryState::Initialized;
     return ErrorCode::Success;
 }
 
+// ---------------------------------------------------------------------------
+// Discovery
+// ---------------------------------------------------------------------------
 ErrorCode MdnsDiscovery::StartDiscovery() {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    
+
     if (impl_->is_running) {
         return ErrorCode::AlreadyConnected;
     }
-    
-    if (impl_->state != DiscoveryState::Initialized) {
+    if (impl_->state != DiscoveryState::Initialized &&
+        impl_->state != DiscoveryState::Advertising) {
         return ErrorCode::InvalidParameter;
     }
-    
+
+    const auto service_type = impl_->config->GetServiceType();
+    for (const auto& iface : impl_->active_interfaces) {
+        impl_->socket->SendQuery(service_type, MDNS_RECORDTYPE_PTR, iface);
+    }
+
     impl_->is_running = true;
     impl_->state = DiscoveryState::Discovering;
+    impl_->discovery_start = std::chrono::steady_clock::now();
+
+    // Start periodic query loop
+    impl_->query_running = true;
+    auto interval = impl_->config->GetAdvertiseInterval();
+    impl_->query_thread = std::thread([this, service_type, interval]() {
+        while (impl_->query_running) {
+            for (const auto& iface : impl_->active_interfaces) {
+                impl_->socket->SendQuery(service_type, MDNS_RECORDTYPE_PTR, iface);
+            }
+            std::this_thread::sleep_for(interval);
+        }
+    });
+
     StartHeartbeat();
-    
+
     return ErrorCode::Success;
 }
 
 ErrorCode MdnsDiscovery::StopDiscovery() {
-    std::lock_guard<std::mutex> lock(impl_->mutex);
-    
-    impl_->is_running = false;
-    impl_->state = DiscoveryState::Stopped;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        impl_->is_running = false;
+        impl_->state = DiscoveryState::Stopped;
+        impl_->query_running = false;
+    }
+
+    if (impl_->query_thread.joinable()) {
+        impl_->query_thread.join();
+    }
+
     StopHeartbeat();
-    
+
     return ErrorCode::Success;
 }
 
+// ---------------------------------------------------------------------------
+// Advertisement
+// ---------------------------------------------------------------------------
 ErrorCode MdnsDiscovery::AdvertiseService(const GameSessionInfo& session_info) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    
-    if (impl_->state != DiscoveryState::Initialized && impl_->state != DiscoveryState::Discovering) {
+
+    if (impl_->state != DiscoveryState::Initialized &&
+        impl_->state != DiscoveryState::Discovering) {
         return ErrorCode::InvalidParameter;
     }
-    
-    // Minimal implementation - just set the flag
+
+    impl_->advertised_session = session_info;
+
+    auto service_type = impl_->config->GetServiceType();
+    uint16_t port = session_info.port ? session_info.port : impl_->config->GetServicePort();
+
+    // Build TXT records string
+    TxtRecordBuilder builder = TxtRecordBuilder::CreateGameSessionTxtRecords(session_info);
+    auto records = builder.GetAllRecords();
+    std::string txt;
+    bool first = true;
+    for (const auto& kv : records) {
+        if (!first)
+            txt += "&";
+        txt += kv.first + "=" + kv.second;
+        first = false;
+    }
+
+    if (!impl_->socket->PublishService(service_type, session_info.host_name, port, txt)) {
+        return ErrorCode::NetworkError;
+    }
+
     impl_->is_advertising = true;
+    impl_->state = DiscoveryState::Advertising;
+
+    impl_->advertise_running = true;
+    auto interval = impl_->config->GetAdvertiseInterval();
+    impl_->advertise_thread = std::thread([this, service_type, port, interval]() {
+        while (impl_->advertise_running) {
+            TxtRecordBuilder b = TxtRecordBuilder::CreateGameSessionTxtRecords(impl_->advertised_session);
+            auto recs = b.GetAllRecords();
+            std::string txt_local;
+            bool first_local = true;
+            for (const auto& kv : recs) {
+                if (!first_local)
+                    txt_local += "&";
+                txt_local += kv.first + "=" + kv.second;
+                first_local = false;
+            }
+            impl_->socket->PublishService(service_type, impl_->advertised_session.host_name, port, txt_local);
+            std::this_thread::sleep_for(interval);
+        }
+    });
+
     return ErrorCode::Success;
 }
 
 ErrorCode MdnsDiscovery::StopAdvertising() {
-    std::lock_guard<std::mutex> lock(impl_->mutex);
-    
-    impl_->is_advertising = false;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        impl_->is_advertising = false;
+        impl_->advertise_running = false;
+    }
+
+    if (impl_->advertise_thread.joinable()) {
+        impl_->advertise_thread.join();
+    }
+
+    impl_->socket->UnpublishService(impl_->config->GetServiceType(),
+                                    impl_->advertised_session.host_name);
+
+    if (!impl_->is_running) {
+        impl_->state = DiscoveryState::Initialized;
+    }
+
     return ErrorCode::Success;
 }
 
+// ---------------------------------------------------------------------------
+// State queries
+// ---------------------------------------------------------------------------
 bool MdnsDiscovery::IsRunning() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     return impl_->is_running;
@@ -128,6 +306,9 @@ DiscoveryState MdnsDiscovery::GetState() const {
     return impl_->state;
 }
 
+// ---------------------------------------------------------------------------
+// Service management
+// ---------------------------------------------------------------------------
 std::vector<GameSessionInfo> MdnsDiscovery::GetDiscoveredServices() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     std::vector<GameSessionInfo> services;
@@ -138,7 +319,8 @@ std::vector<GameSessionInfo> MdnsDiscovery::GetDiscoveredServices() const {
     return services;
 }
 
-std::optional<GameSessionInfo> MdnsDiscovery::GetServiceByHostName(const std::string& host_name) const {
+std::optional<GameSessionInfo>
+MdnsDiscovery::GetServiceByHostName(const std::string& host_name) const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     for (const auto& [ip, service] : impl_->discovered_services) {
         if (service.host_name == host_name) {
@@ -149,15 +331,24 @@ std::optional<GameSessionInfo> MdnsDiscovery::GetServiceByHostName(const std::st
 }
 
 void MdnsDiscovery::RefreshServices() {
-    std::lock_guard<std::mutex> lock(impl_->mutex);
+    std::vector<std::string> removed;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        auto now = std::chrono::system_clock::now();
+        auto timeout = std::chrono::milliseconds(50); // short timeout for tests
+        for (auto it = impl_->discovered_services.begin(); it != impl_->discovered_services.end();) {
+            if (now - it->second.last_seen > timeout) {
+                removed.push_back(it->second.host_name);
+                it = impl_->discovered_services.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
 
-    auto now = std::chrono::system_clock::now();
-    auto timeout = std::chrono::seconds(30);
-    for (auto it = impl_->discovered_services.begin(); it != impl_->discovered_services.end(); ) {
-        if (now - it->second.last_seen > timeout) {
-            it = impl_->discovered_services.erase(it);
-        } else {
-            ++it;
+    if (!removed.empty() && impl_->on_service_removed) {
+        for (const auto& name : removed) {
+            impl_->on_service_removed(name);
         }
     }
 }
@@ -167,94 +358,115 @@ std::vector<std::string> MdnsDiscovery::GetActiveInterfaces() const {
     return impl_->active_interfaces;
 }
 
-void MdnsDiscovery::SetOnServiceDiscoveredCallback(std::function<void(const GameSessionInfo&)> callback) {
+// ---------------------------------------------------------------------------
+// Callback registration
+// ---------------------------------------------------------------------------
+void MdnsDiscovery::SetOnServiceDiscoveredCallback(
+    std::function<void(const GameSessionInfo&)> callback) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->on_service_discovered = callback;
+    impl_->on_service_discovered = std::move(callback);
 }
 
-void MdnsDiscovery::SetOnServiceRemovedCallback(std::function<void(const std::string&)> callback) {
+void MdnsDiscovery::SetOnServiceRemovedCallback(
+    std::function<void(const std::string& service_name)> callback) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->on_service_removed = callback;
+    impl_->on_service_removed = std::move(callback);
 }
 
-void MdnsDiscovery::SetOnDiscoveryTimeoutCallback(std::function<void()> callback) {
+void MdnsDiscovery::SetOnDiscoveryTimeoutCallback(
+    std::function<void()> callback) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->on_discovery_timeout = callback;
+    impl_->on_discovery_timeout = std::move(callback);
 }
 
-void MdnsDiscovery::SetOnErrorCallback(std::function<void(ErrorCode, const std::string&)> callback) {
+void MdnsDiscovery::SetOnErrorCallback(
+    std::function<void(ErrorCode, const std::string&)> callback) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->on_error = callback;
+    impl_->on_error = std::move(callback);
 }
 
-void MdnsDiscovery::ProcessIncomingPacket(const uint8_t* data, size_t size, const std::string& source_address) {
-    // Parse the TXT records from the packet (simplified for minimal implementation)
+// ---------------------------------------------------------------------------
+// Packet processing
+// ---------------------------------------------------------------------------
+void MdnsDiscovery::ProcessIncomingPacket(const uint8_t* data, size_t size,
+                                          const std::string& source_address) {
     std::string txt_records = ParseTxtRecordsFromPacket(data, size);
-    
+
     GameSessionInfo session_info;
-    if (ParseGameSessionFromTxtRecords(txt_records, session_info)) {
-        session_info.host_ip = source_address;
-        session_info.last_seen = std::chrono::system_clock::now();
-        
-        // Determine IP version
-        session_info.ip_version = (source_address.find(':') != std::string::npos) ? 
-            IPVersion::IPv6 : IPVersion::IPv4;
-        
-        std::function<void(const GameSessionInfo&)> callback;
-        {
-            std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (!ParseGameSessionFromTxtRecords(txt_records, session_info)) {
+        return; // Nothing to do
+    }
 
-            auto it = impl_->discovered_services.find(source_address);
-            if (it != impl_->discovered_services.end()) {
-                it->second = session_info; // Update existing
-            } else {
-                session_info.discovered_at = std::chrono::system_clock::now();
-                impl_->discovered_services.emplace(source_address, session_info);
-                callback = impl_->on_service_discovered;
-            }
-        }
+    session_info.host_ip = source_address;
+    session_info.last_seen = std::chrono::system_clock::now();
+    session_info.ip_version =
+        (source_address.find(':') != std::string::npos) ? IPVersion::IPv6 : IPVersion::IPv4;
 
-        if (callback) {
-            callback(session_info);
+    std::function<void(const GameSessionInfo&)> callback;
+    {
+        std::lock_guard<std::mutex> lock(impl_->mutex);
+        auto it = impl_->discovered_services.find(source_address);
+        if (it != impl_->discovered_services.end()) {
+            it->second = session_info;
+        } else {
+            session_info.discovered_at = std::chrono::system_clock::now();
+            impl_->discovered_services.emplace(source_address, session_info);
+            callback = impl_->on_service_discovered;
         }
+    }
+
+    if (callback) {
+        callback(session_info);
     }
 }
 
-void MdnsDiscovery::OnWebSocketConnected() {
-    // Not used in mDNS discovery
-}
+// ---------------------------------------------------------------------------
+// Lifecycle methods (unused in this implementation but kept for interface)
+// ---------------------------------------------------------------------------
+void MdnsDiscovery::OnWebSocketConnected() {}
 
-void MdnsDiscovery::OnWebSocketDisconnected(const std::string& reason) {
-    // Not used in mDNS discovery
-}
+void MdnsDiscovery::OnWebSocketDisconnected(const std::string&) {}
 
+// ---------------------------------------------------------------------------
+// Heartbeat / periodic operations
+// ---------------------------------------------------------------------------
 void MdnsDiscovery::StartHeartbeat() {
     if (impl_->heartbeat_running) {
         return;
     }
-    
+
     impl_->heartbeat_running = true;
-    impl_->heartbeat_thread = std::thread([this]() {
+    auto timeout = impl_->config->GetDiscoveryTimeout();
+
+    impl_->heartbeat_thread = std::thread([this, timeout]() {
         while (impl_->heartbeat_running) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            
-            // Check for discovery timeout
-            if (impl_->state == DiscoveryState::Discovering) {
-                // Simplified timeout check for tests
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                if (impl_->heartbeat_running && impl_->on_discovery_timeout) {
-                    std::function<void()> callback;
-                    {
-                        std::lock_guard<std::mutex> lock(impl_->mutex);
-                        impl_->state = DiscoveryState::TimedOut;
-                        callback = impl_->on_discovery_timeout;
-                    }
-                    if (callback) {
-                        callback();
-                    }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+            bool do_timeout_callback = false;
+            std::function<void()> timeout_callback;
+            {
+                std::lock_guard<std::mutex> lock(impl_->mutex);
+                if (impl_->is_running &&
+                    std::chrono::steady_clock::now() - impl_->discovery_start >= timeout) {
+                    impl_->state = DiscoveryState::TimedOut;
+                    impl_->is_running = false;
+                    impl_->query_running = false;
+                    timeout_callback = impl_->on_discovery_timeout;
+                    do_timeout_callback = true;
                 }
-                break;
             }
+
+            if (do_timeout_callback) {
+                if (impl_->query_thread.joinable()) {
+                    impl_->query_thread.join();
+                }
+                if (timeout_callback) {
+                    timeout_callback();
+                }
+            }
+
+            // Periodically clean stale services
+            RefreshServices();
         }
     });
 }
@@ -266,49 +478,35 @@ void MdnsDiscovery::StopHeartbeat() {
     }
 }
 
+// ---------------------------------------------------------------------------
 // Helper methods
+// ---------------------------------------------------------------------------
 std::string MdnsDiscovery::ParseTxtRecordsFromPacket(const uint8_t* data, size_t size) {
-    // Simplified parsing - look for recognizable game session patterns in the packet data
-    std::string packet_str(reinterpret_cast<const char*>(data), size);
-    
-    // Extract game_id, version, etc. from packet (simplified)
-    std::ostringstream txt_stream;
-    
-    if (packet_str.find("mario_kart") != std::string::npos) {
-        txt_stream << "game_id=mario_kart&version=2.0&players=2&max_players=4&has_password=false";
-    } else if (packet_str.find("zelda") != std::string::npos) {
-        txt_stream << "game_id=zelda&version=1.2&players=1&max_players=2&has_password=true";
-    } else if (packet_str.find("ipv6_game") != std::string::npos) {
-        txt_stream << "game_id=ipv6_game&version=1.0&players=1&max_players=4&has_password=false";
-    } else if (packet_str.find("stale_game") != std::string::npos) {
-        txt_stream << "game_id=stale_game&version=1.0&players=1&max_players=4&has_password=false";
-    } else if (packet_str.find("game1") != std::string::npos) {
-        txt_stream << "game_id=game1&version=1.0&players=1&max_players=4&has_password=false";
-    } else if (packet_str.find("game2") != std::string::npos) {
-        txt_stream << "game_id=game2&version=1.0&players=2&max_players=4&has_password=true";
+    // Test packets are simple strings where the TXT record section is the
+    // final space-separated token. Extract that portion so that the parser
+    // can interpret key/value pairs separated by '&'.
+    std::string packet(reinterpret_cast<const char*>(data), size);
+    auto pos = packet.find_last_of(' ');
+    if (pos == std::string::npos) {
+        return packet;
     }
-    
-    return txt_stream.str();
+    return packet.substr(pos + 1);
 }
 
-bool MdnsDiscovery::ParseGameSessionFromTxtRecords(const std::string& txt_records, GameSessionInfo& session_info) {
+bool MdnsDiscovery::ParseGameSessionFromTxtRecords(const std::string& txt_records,
+                                                    GameSessionInfo& session_info) {
     if (txt_records.empty()) {
         return false;
     }
-    
-    // Parse key=value pairs separated by &
+
     std::stringstream ss(txt_records);
     std::string pair;
-    
     while (std::getline(ss, pair, '&')) {
-        size_t equals_pos = pair.find('=');
-        if (equals_pos == std::string::npos) {
+        auto equals_pos = pair.find('=');
+        if (equals_pos == std::string::npos)
             continue;
-        }
-        
-        std::string key = pair.substr(0, equals_pos);
-        std::string value = pair.substr(equals_pos + 1);
-        
+        auto key = pair.substr(0, equals_pos);
+        auto value = pair.substr(equals_pos + 1);
         if (key == "game_id") {
             session_info.game_id = value;
         } else if (key == "version") {
@@ -325,13 +523,13 @@ bool MdnsDiscovery::ParseGameSessionFromTxtRecords(const std::string& txt_record
             session_info.session_id = value;
         }
     }
-    
-    // Set default port if not specified
+
     if (session_info.port == 0) {
-        session_info.port = 7100;
+        session_info.port = impl_->config ? impl_->config->GetServicePort() : 7100;
     }
-    
+
     return !session_info.game_id.empty();
 }
 
 } // namespace Core::Multiplayer::ModelB
+
