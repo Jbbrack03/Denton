@@ -5,12 +5,14 @@ set(SOURCES
     # mDNS Discovery implementation
     mdns_discovery.cpp
     mdns_txt_records.cpp
+    model_b_backend.cpp
 )
 
 set(HEADERS
     # mDNS Discovery headers (interfaces defined for TDD red phase)
     mdns_discovery.h
     mdns_txt_records.h
+    model_b_backend.h
 )
 
 # Platform-specific sources
