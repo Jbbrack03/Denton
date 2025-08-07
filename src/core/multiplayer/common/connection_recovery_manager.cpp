@@ -5,7 +5,7 @@
 #include <thread>
 #include <random>
 #include <algorithm>
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 namespace Core::Multiplayer {
 
@@ -46,9 +46,10 @@ public:
         
         // Start recovery process in background thread
         recovery_thread_ = std::thread(&Impl::PerformRecovery, this);
-        
-        // Log recovery start (placeholder for actual logging)
-        std::cout << "Started recovery for error: " << static_cast<int>(error.error_code) << std::endl;
+
+        if (spdlog::should_log(spdlog::level::info)) {
+            spdlog::info("Started recovery for error: {}", static_cast<int>(error.error_code));
+        }
         return ErrorCode::Success;
     }
 
@@ -64,8 +65,10 @@ public:
         if (recovery_thread_.joinable()) {
             recovery_thread_.join();
         }
-        
-        std::cout << "Recovery stopped" << std::endl;
+
+        if (spdlog::should_log(spdlog::level::info)) {
+            spdlog::info("Recovery stopped");
+        }
         return ErrorCode::Success;
     }
 
@@ -241,8 +244,10 @@ private:
         // For minimal implementation, just log the attempt
         // In real implementation, this would call listener_->OnRecoveryAttempt()
         if (listener_ && current_error_.has_value()) {
-            std::cout << "Recovery attempt " << current_attempt_ << " for error " 
-                      << static_cast<int>(current_error_.value().error_code) << std::endl;
+            if (spdlog::should_log(spdlog::level::debug)) {
+                spdlog::debug("Recovery attempt {} for error {}", current_attempt_,
+                              static_cast<int>(current_error_.value().error_code));
+            }
         }
     }
 
@@ -250,8 +255,10 @@ private:
         // For minimal implementation, just log the success
         // In real implementation, this would call listener_->OnRecoverySucceeded()
         if (listener_ && current_error_.has_value()) {
-            std::cout << "Recovery succeeded for error " 
-                      << static_cast<int>(current_error_.value().error_code) << std::endl;
+            if (spdlog::should_log(spdlog::level::info)) {
+                spdlog::info("Recovery succeeded for error {}",
+                             static_cast<int>(current_error_.value().error_code));
+            }
         }
     }
 
@@ -259,9 +266,11 @@ private:
         // For minimal implementation, just log the failure
         // In real implementation, this would call listener_->OnRecoveryFailed()
         if (listener_ && current_error_.has_value()) {
-            std::cout << "Recovery failed for error " 
-                      << static_cast<int>(current_error_.value().error_code) 
-                      << " after " << current_attempt_ << " attempts" << std::endl;
+            if (spdlog::should_log(spdlog::level::err)) {
+                spdlog::error("Recovery failed for error {} after {} attempts",
+                              static_cast<int>(current_error_.value().error_code),
+                              current_attempt_);
+            }
         }
     }
 
