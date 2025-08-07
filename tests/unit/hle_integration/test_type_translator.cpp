@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <algorithm>
 
 // LDN HLE includes
 #include "sudachi/src/core/hle/service/ldn/ldn_types.h"
@@ -255,8 +256,11 @@ public:
         internal.is_connected = (ldn.is_connected != 0);
         internal.local_communication_version = static_cast<uint16_t>(ldn.local_communication_version);
         
-        // Convert user name (null-terminate properly)
-        internal.user_name = std::string(reinterpret_cast<const char*>(ldn.user_name.data()));
+        // Convert user name (use explicit length)
+        const char* name_data = reinterpret_cast<const char*>(ldn.user_name.data());
+        const char* name_end =
+            std::find(name_data, name_data + Service::LDN::UserNameBytesMax, '\0');
+        internal.user_name.assign(name_data, name_end);
         
         // Convert MAC address
         internal.mac_address.resize(6);
@@ -745,6 +749,19 @@ TEST_F(TypeTranslatorTest, ConvertNodeInfo) {
     for (size_t i = 0; i < 4; ++i) {
         EXPECT_EQ(ldn_node.ipv4_address[i], internal_node.ipv4_address[i]);
     }
+}
+
+TEST_F(TypeTranslatorTest, FromLdnNodeInfoHandlesUserNameLength) {
+    Service::LDN::NodeInfo ldn_node{};
+
+    ldn_node.user_name.fill('A');
+    auto internal = translator->FromLdnNodeInfo(ldn_node);
+    EXPECT_EQ(internal.user_name, std::string(Service::LDN::UserNameBytesMax, 'A'));
+
+    ldn_node.user_name.fill('B');
+    ldn_node.user_name[5] = '\0';
+    internal = translator->FromLdnNodeInfo(ldn_node);
+    EXPECT_EQ(internal.user_name, std::string(5, 'B'));
 }
 
 TEST_F(TypeTranslatorTest, ConvertAddresses) {
