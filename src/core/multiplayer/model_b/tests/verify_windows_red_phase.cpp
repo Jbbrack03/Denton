@@ -3,6 +3,9 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include "../platform/windows/mobile_hotspot_manager.h"
+#include "../platform/windows/mobile_hotspot_capabilities.h"
+#include "../../common/error_codes.h"
 
 /**
  * TDD Red Phase Verification for Windows Mobile Hotspot Manager
@@ -28,9 +31,9 @@ TEST(WindowsRedPhaseVerification, MobileHotspotManagerTestsExist) {
     std::cout << "6. MobileHotspotManagerErrorTest (5 tests)\n";
     std::cout << "7. MobileHotspotManagerThreadSafetyTest (3 tests)\n";
     std::cout << "Total: 32+ failing tests for Mobile Hotspot Manager\n";
-    
-    // This should pass - it's just documenting our test structure
-    EXPECT_TRUE(true);
+
+    using namespace Core::Multiplayer::ModelB::Windows;
+    EXPECT_EQ(static_cast<int>(HotspotState::Uninitialized), 0);
 }
 
 TEST(WindowsRedPhaseVerification, MobileHotspotCapabilitiesTestsExist) {
@@ -42,9 +45,10 @@ TEST(WindowsRedPhaseVerification, MobileHotspotCapabilitiesTestsExist) {
     std::cout << "5. MobileHotspotCapabilitiesFallbackTest (3 tests)\n";
     std::cout << "6. MobileHotspotCapabilitiesTest (2 tests)\n";
     std::cout << "Total: 22+ failing tests for Mobile Hotspot Capabilities\n";
-    
-    // This should pass - it's just documenting our test structure
-    EXPECT_TRUE(true);
+
+    using namespace Core::Multiplayer::ModelB::Windows;
+    MobileHotspotCapabilities caps;
+    EXPECT_TRUE(caps.IsHotspotSupportedByVersion());
 }
 
 TEST(WindowsRedPhaseVerification, TestingSummary) {
@@ -81,9 +85,10 @@ TEST(WindowsRedPhaseVerification, TestingSummary) {
     std::cout << "5. Make tests pass one by one\n";
     
     std::cout << "\n================================================\n";
-    
-    // This test passes to confirm our setup is complete
-    EXPECT_TRUE(true);
+
+    using namespace Core::Multiplayer::ModelB::Windows;
+    MobileHotspotManager manager;
+    EXPECT_EQ(manager.StartHotspot(), Core::Multiplayer::ErrorCode::NotInitialized);
 }
 
 } // anonymous namespace
