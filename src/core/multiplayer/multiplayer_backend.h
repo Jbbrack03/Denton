@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <cstdint>
+#include <functional>
 
 #include "common/error_codes.h"
 
@@ -18,6 +19,8 @@ class ScanFilter;
 enum class State : uint32_t;
 class SecurityParameter;
 enum class DisconnectReason : uint32_t;
+class Ipv4Address;
+class NetworkConfig;
 }
 
 namespace Core::Multiplayer::HLE {
@@ -57,11 +60,20 @@ public:
     // Data transmission
     virtual ErrorCode SendPacket(const std::vector<uint8_t>& data, uint8_t node_id) = 0;
     virtual ErrorCode ReceivePacket(std::vector<uint8_t>& out_data, uint8_t& out_node_id) = 0;
-    
+
     // Configuration and status
     virtual ErrorCode SetAdvertiseData(const std::vector<uint8_t>& data) = 0;
     virtual ErrorCode GetSecurityParameter(Service::LDN::SecurityParameter& out_param) = 0;
     virtual ErrorCode GetDisconnectReason(Service::LDN::DisconnectReason& out_reason) = 0;
+
+    // Network details
+    virtual ErrorCode GetIpv4Address(Service::LDN::Ipv4Address& out_address,
+                                     Service::LDN::Ipv4Address& out_subnet) = 0;
+    virtual ErrorCode GetNetworkConfig(Service::LDN::NetworkConfig& out_config) = 0;
+
+    // Event callbacks
+    virtual void RegisterNodeEventCallbacks(std::function<void(uint8_t)> on_node_joined,
+                                            std::function<void(uint8_t)> on_node_left) = 0;
 };
 
 } // namespace Core::Multiplayer::HLE
