@@ -7,6 +7,7 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <atomic>
 #include <regex>
 #include <string>
 #include <unordered_map>
@@ -29,6 +30,11 @@ constexpr size_t MAX_JSON_SIZE = 32768;    // 32KB max JSON message
 constexpr size_t MAX_PROTOCOL_NAME_SIZE = 256;
 constexpr size_t MAX_PEER_ID_SIZE = 128;
 constexpr size_t MAX_MULTIADDR_SIZE = 512;
+// Maximum allowed JSON depth to prevent excessive recursion
+constexpr size_t MAX_JSON_DEPTH = 10;
+// Limits on array/object entries to mitigate JSON bomb attacks
+constexpr size_t MAX_JSON_ARRAY_SIZE = 256;
+constexpr size_t MAX_JSON_OBJECT_SIZE = 256;
 
 /**
  * Rate limiting configuration

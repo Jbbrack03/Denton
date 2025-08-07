@@ -246,17 +246,58 @@ bool NetworkInputValidator::ContainsSuspiciousPatterns(const std::string& str) {
     return false;
 }
 
+namespace {
+ValidationResult CheckJsonNode(const json& node, size_t depth) {
+    if (depth > MAX_JSON_DEPTH) {
+        return ValidationResult::Failure(
+            "JSON depth exceeds maximum allowed: " + std::to_string(depth) +
+                " > " + std::to_string(MAX_JSON_DEPTH),
+            ErrorCode::InvalidMessage);
+    }
+
+    if (node.is_array()) {
+        if (node.size() > MAX_JSON_ARRAY_SIZE) {
+            return ValidationResult::Failure(
+                "JSON array too large: " + std::to_string(node.size()) +
+                    " > " + std::to_string(MAX_JSON_ARRAY_SIZE),
+                ErrorCode::InvalidMessage);
+        }
+        for (const auto& item : node) {
+            auto res = CheckJsonNode(item, depth + 1);
+            if (!res.is_valid) {
+                return res;
+            }
+        }
+    } else if (node.is_object()) {
+        if (node.size() > MAX_JSON_OBJECT_SIZE) {
+            return ValidationResult::Failure(
+                "JSON object too large: " + std::to_string(node.size()) +
+                    " > " + std::to_string(MAX_JSON_OBJECT_SIZE),
+                ErrorCode::InvalidMessage);
+        }
+        for (const auto& item : node.items()) {
+            auto res = CheckJsonNode(item.value(), depth + 1);
+            if (!res.is_valid) {
+                return res;
+            }
+        }
+    }
+
+    return ValidationResult::Success();
+}
+} // namespace
+
 ValidationResult NetworkInputValidator::ValidateJsonStructure(const std::string& json_str) {
     try {
         auto parsed = json::parse(json_str);
-        
-        // Check for reasonable depth (prevent JSON bomb attacks)
-        const int MAX_JSON_DEPTH = 10;
-        // Note: nlohmann::json doesn't have built-in depth checking,
-        // this would need a custom recursive function for production use
-        
+
+        auto res = CheckJsonNode(parsed, 1);
+        if (!res.is_valid) {
+            return res;
+        }
+
         return ValidationResult::Success();
-        
+
     } catch (const json::parse_error& e) {
         return ValidationResult::Failure(
             "Invalid JSON format: " + std::string(e.what()),
