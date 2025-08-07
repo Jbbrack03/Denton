@@ -5,6 +5,7 @@
 #include <thread>
 #include <algorithm>
 #include <iostream>
+#include <atomic>
 
 namespace Core::Multiplayer {
 
@@ -37,14 +38,14 @@ public:
         is_degraded_ = false;
         
         // Check if the primary backend is available
-        if (!IsBackendAvailable(primary_mode)) {
+        if (!IsBackendAvailableLocked(primary_mode)) {
             std::cout << "Primary backend " << ModeToString(primary_mode) 
                       << " not available, attempting fallback" << std::endl;
             
             // Try to find an available fallback
             auto fallback_modes = GetSupportedFallbackModes(primary_mode);
             for (auto fallback_mode : fallback_modes) {
-                if (IsBackendAvailable(fallback_mode)) {
+                if (IsBackendAvailableLocked(fallback_mode)) {
                     current_mode_ = fallback_mode;
                     state_ = DegradationState::Degraded;
                     is_degraded_ = true;
@@ -134,22 +135,27 @@ public:
     }
 
     bool IsBackendAvailable(MultiplayerMode mode) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return IsBackendAvailableLocked(mode);
+    }
+
+    bool IsBackendAvailableLocked(MultiplayerMode mode) const {
         MockMultiplayerBackend* backend = GetBackendForMode(mode);
         // For minimal implementation, simulate backend availability
         // In real implementation, this would call backend->IsAvailable()
         if (!backend) {
             return mode == MultiplayerMode::Offline; // Offline mode is always available
         }
-        
+
         // Simulate: Internet is available 80% of the time, Adhoc 90% of the time
-        static int check_count = 0;
-        check_count++;
-        
+        static std::atomic<int> check_count{0};
+        int current_count = ++check_count;
+
         switch (mode) {
             case MultiplayerMode::Internet:
-                return (check_count % 5) != 0; // 80% availability
+                return (current_count % 5) != 0; // 80% availability
             case MultiplayerMode::Adhoc:
-                return (check_count % 10) != 0; // 90% availability
+                return (current_count % 10) != 0; // 90% availability
             case MultiplayerMode::Offline:
                 return true;
             default:
@@ -200,7 +206,7 @@ public:
         // Attempt fallback to another mode
         auto fallback_modes = GetSupportedFallbackModes(current_mode_);
         for (auto fallback_mode : fallback_modes) {
-            if (IsBackendAvailable(fallback_mode)) {
+            if (IsBackendAvailableLocked(fallback_mode)) {
                 AttemptFallback(fallback_mode, error);
                 break;
             }
@@ -210,7 +216,7 @@ public:
     ErrorCode AttemptRecovery(MultiplayerMode target_mode) {
         std::lock_guard<std::mutex> lock(mutex_);
         
-        if (!IsBackendAvailable(target_mode)) {
+        if (!IsBackendAvailableLocked(target_mode)) {
             return ErrorCode::ServiceUnavailable;
         }
         
@@ -238,25 +244,26 @@ public:
     }
 
     void CheckBackendHealth(MultiplayerMode mode) {
+        std::lock_guard<std::mutex> lock(mutex_);
         MockMultiplayerBackend* backend = GetBackendForMode(mode);
         if (!backend) {
             return;
         }
-        
+
         auto& metrics = health_metrics_[mode];
         metrics.total_health_checks++;
         metrics.last_check_time = std::chrono::steady_clock::now();
-        
+
         // For minimal implementation, simulate health check
         // In real implementation, this would call backend->IsAvailable()
         try {
             auto start_time = std::chrono::steady_clock::now();
-            bool is_available = IsBackendAvailable(mode);
+            bool is_available = IsBackendAvailableLocked(mode);
             auto end_time = std::chrono::steady_clock::now();
-            
+
             auto response_time = std::chrono::duration_cast<std::chrono::milliseconds>(
                 end_time - start_time).count();
-            
+
             if (is_available) {
                 // Successful health check
                 UpdateResponseTimeMetrics(mode, response_time);
@@ -266,10 +273,10 @@ public:
         } catch (...) {
             metrics.failed_health_checks++;
         }
-        
+
         // Update uptime percentage
         if (metrics.total_health_checks > 0) {
-            metrics.uptime_percentage = 
+            metrics.uptime_percentage =
                 static_cast<double>(metrics.total_health_checks - metrics.failed_health_checks) /
                 metrics.total_health_checks * 100.0;
         }
@@ -283,7 +290,7 @@ public:
 
     bool IsServiceAvailable() const {
         std::lock_guard<std::mutex> lock(mutex_);
-        return IsBackendAvailable(current_mode_);
+        return IsBackendAvailableLocked(current_mode_);
     }
 
     void SetModeSwitchListener(MockModeSwitchListener* listener) {
