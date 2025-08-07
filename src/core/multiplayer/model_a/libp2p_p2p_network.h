@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "i_p2p_network.h"
 #include "p2p_types.h"
 #include <memory>
 #include <mutex>
@@ -25,8 +24,16 @@ namespace Core::Multiplayer::ModelA {
  * P2P Network implementation using real cpp-libp2p
  * Replaces mock implementation with actual libp2p functionality
  */
-class Libp2pP2PNetwork : public IP2PNetwork {
+class Libp2pP2PNetwork {
 public:
+    enum class NATType {
+        Unknown,
+        FullCone,
+        RestrictedCone,
+        PortRestrictedCone,
+        Symmetric,
+        NoNAT
+    };
     // Constructor for production use
     explicit Libp2pP2PNetwork(const P2PNetworkConfig& config);
     
@@ -38,47 +45,47 @@ public:
         std::shared_ptr<libp2p::security::SecurityManager> security_manager
     );
 
-    ~Libp2pP2PNetwork() override;
+    ~Libp2pP2PNetwork();
 
     // Network lifecycle
-    MultiplayerResult Start() override;
-    MultiplayerResult Stop() override;
-    MultiplayerResult Shutdown() override;
-    bool IsStarted() const override;
+    MultiplayerResult Start();
+    MultiplayerResult Stop();
+    MultiplayerResult Shutdown();
+    bool IsStarted() const;
 
     // Identity and addressing
-    std::string GetPeerId() const override;
+    std::string GetPeerId() const;
 
     // Connection management
-    MultiplayerResult ConnectToPeer(const std::string& peer_id, const std::string& multiaddr) override;
-    MultiplayerResult DisconnectFromPeer(const std::string& peer_id) override;
-    bool IsConnectedToPeer(const std::string& peer_id) const override;
-    bool IsConnectedViaaRelay(const std::string& peer_id) const override;
-    size_t GetConnectionCount() const override;
-    std::vector<std::string> GetConnectedPeers() const override;
+    MultiplayerResult ConnectToPeer(const std::string& peer_id, const std::string& multiaddr);
+    MultiplayerResult DisconnectFromPeer(const std::string& peer_id);
+    bool IsConnectedToPeer(const std::string& peer_id) const;
+    bool IsConnectedViaaRelay(const std::string& peer_id) const;
+    size_t GetConnectionCount() const;
+    std::vector<std::string> GetConnectedPeers() const;
 
     // Message handling
-    MultiplayerResult SendMessage(const std::string& peer_id, const std::string& protocol, const std::vector<uint8_t>& data) override;
-    MultiplayerResult BroadcastMessage(const std::string& protocol, const std::vector<uint8_t>& data) override;
-    void RegisterProtocolHandler(const std::string& protocol) override;
-    void HandleIncomingMessage(const std::string& peer_id, const std::string& protocol, const std::vector<uint8_t>& data) override;
+    MultiplayerResult SendMessage(const std::string& peer_id, const std::string& protocol, const std::vector<uint8_t>& data);
+    MultiplayerResult BroadcastMessage(const std::string& protocol, const std::vector<uint8_t>& data);
+    void RegisterProtocolHandler(const std::string& protocol);
+    void HandleIncomingMessage(const std::string& peer_id, const std::string& protocol, const std::vector<uint8_t>& data);
 
     // NAT traversal
-    MultiplayerResult DetectNATType() override;
-    bool CanTraverseNAT(NATType local_nat, NATType remote_nat) const override;
-    std::vector<std::string> GetTraversalStrategies(NATType local_nat, NATType remote_nat) const override;
+    MultiplayerResult DetectNATType();
+    bool CanTraverseNAT(NATType local_nat, NATType remote_nat) const;
+    std::vector<std::string> GetTraversalStrategies(NATType local_nat, NATType remote_nat) const;
 
     // Relay management
-    std::vector<std::string> GetConfiguredRelayServers() const override;
+    std::vector<std::string> GetConfiguredRelayServers() const;
 
     // Callbacks
-    void SetOnPeerConnectedCallback(std::function<void(const std::string&)> callback) override;
-    void SetOnPeerDisconnectedCallback(std::function<void(const std::string&)> callback) override;
-    void SetOnConnectionFailedCallback(std::function<void(const std::string&, const std::string&)> callback) override;
-    void SetOnMessageReceivedCallback(std::function<void(const std::string&, const std::string&, const std::vector<uint8_t>&)> callback) override;
-    void SetOnNATDetectedCallback(std::function<void(NATType, bool)> callback) override;
-    void SetOnRelayConnectedCallback(std::function<void(const std::string&, const std::string&)> callback) override;
-    void SetOnRelayFailedCallback(std::function<void(const std::string&, const std::string&)> callback) override;
+    void SetOnPeerConnectedCallback(std::function<void(const std::string&)> callback);
+    void SetOnPeerDisconnectedCallback(std::function<void(const std::string&)> callback);
+    void SetOnConnectionFailedCallback(std::function<void(const std::string&, const std::string&)> callback);
+    void SetOnMessageReceivedCallback(std::function<void(const std::string&, const std::string&, const std::vector<uint8_t>&)> callback);
+    void SetOnNATDetectedCallback(std::function<void(NATType, bool)> callback);
+    void SetOnRelayConnectedCallback(std::function<void(const std::string&, const std::string&)> callback);
+    void SetOnRelayFailedCallback(std::function<void(const std::string&, const std::string&)> callback);
 
 private:
     // Configuration
@@ -110,6 +117,7 @@ private:
     std::function<void(NATType, bool)> on_nat_detected_;
     std::function<void(const std::string&, const std::string&)> on_relay_connected_;
     std::function<void(const std::string&, const std::string&)> on_relay_failed_;
+    mutable std::mutex callback_mutex_;
 
     // Helper methods
     void InitializeHost();
