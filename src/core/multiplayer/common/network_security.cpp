@@ -3,11 +3,9 @@
 
 #include "network_security.h"
 #include <algorithm>
-#include <array>
 #include <nlohmann/json.hpp>
 #include <regex>
 #include <sstream>
-#include <string_view>
 
 using json = nlohmann::json;
 
@@ -219,31 +217,14 @@ bool NetworkInputValidator::IsValidUtf8(const std::string& str) {
 }
 
 bool NetworkInputValidator::ContainsSuspiciousPatterns(const std::string& str) {
-    static const std::array<std::string_view, 12> suspicious_patterns = {
-        "<script",       // XSS attempt
-        "javascript:",   // XSS attempt
-        "eval(",         // Code injection
-        "exec(",         // Code injection
-        "../",           // Path traversal
-        "..\\",          // Path traversal (Windows)
-        "cmd.exe",       // Command injection
-        "/bin/",         // Command injection
-        "drop table",    // SQL injection
-        "select * from", // SQL injection
-        "union select",  // SQL injection
-        "'; --",         // SQL injection
-    };
+    // Compile all patterns into a single case-insensitive regular expression to
+    // avoid allocating a lowercased copy of the input and to efficiently
+    // perform multi-pattern matching.
+    static const std::regex suspicious_regex(
+        R"(<script|javascript:|eval\(|exec\(|\.\./|..\\|cmd\.exe|/bin/|drop table|select \* from|union select|'; --)",
+        std::regex::icase);
 
-    std::string lower_str = str;
-    std::transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
-
-    for (const auto& pattern : suspicious_patterns) {
-        if (lower_str.find(pattern) != std::string::npos) {
-            return true;
-        }
-    }
-
-    return false;
+    return std::regex_search(str, suspicious_regex);
 }
 
 ValidationResult NetworkInputValidator::ValidateJsonStructure(const std::string& json_str) {
