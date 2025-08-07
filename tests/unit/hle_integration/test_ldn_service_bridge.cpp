@@ -5,6 +5,7 @@
 #include <gmock/gmock.h>
 #include <memory>
 #include <vector>
+#include <mutex>
 
 // Include the backend interfaces from previous test files
 #include "test_multiplayer_backend_interface.cpp"
@@ -102,6 +103,10 @@ public:
         if (error != Core::Multiplayer::ErrorCode::Success) {
             return MapErrorToResult(error);
         }
+
+        current_backend_->RegisterNodeEventCallbacks(
+            [this](uint8_t node_id) { OnNodeJoined(node_id); },
+            [this](uint8_t node_id) { OnNodeLeft(node_id); });
         
         current_state_ = State::Initialized;
         return ResultSuccess;
@@ -322,24 +327,40 @@ public:
         if (result != ResultSuccess) {
             return result;
         }
-        
-        // Clear and populate node updates (implementation will be enhanced)
-        out_updates.clear();
-        // TODO: Implement actual node update tracking
-        
+
+        // Retrieve any pending node updates
+        {
+            std::lock_guard<std::mutex> lock(node_updates_mutex_);
+            out_updates = node_updates_;
+            node_updates_.clear();
+        }
+
         return ResultSuccess;
     }
-    
+
     Result GetIpv4Address(Ipv4Address& out_address, Ipv4Address& out_subnet) override {
-        // Return placeholder IP addresses - implementation will be enhanced
-        out_address = {192, 168, 1, 100};
-        out_subnet = {255, 255, 255, 0};
+        if (!current_backend_) {
+            return ResultInternalError;
+        }
+
+        auto error = current_backend_->GetIpv4Address(out_address, out_subnet);
+        if (error != Core::Multiplayer::ErrorCode::Success) {
+            return MapErrorToResult(error);
+        }
+
         return ResultSuccess;
     }
-    
+
     Result GetNetworkConfig(NetworkConfig& out_config) override {
-        // Return default config - implementation will be enhanced
-        out_config = {};
+        if (!current_backend_) {
+            return ResultInternalError;
+        }
+
+        auto error = current_backend_->GetNetworkConfig(out_config);
+        if (error != Core::Multiplayer::ErrorCode::Success) {
+            return MapErrorToResult(error);
+        }
+
         return ResultSuccess;
     }
     
@@ -432,6 +453,25 @@ public:
     }
 
 private:
+    void OnNodeJoined(uint8_t node_id) {
+        std::lock_guard<std::mutex> lock(node_updates_mutex_);
+        NodeLatestUpdate update{};
+        update.node_id = node_id;
+        update.is_connected = 1;
+        node_updates_.push_back(update);
+    }
+
+    void OnNodeLeft(uint8_t node_id) {
+        std::lock_guard<std::mutex> lock(node_updates_mutex_);
+        NodeLatestUpdate update{};
+        update.node_id = node_id;
+        update.is_connected = 0;
+        node_updates_.push_back(update);
+    }
+
+    std::mutex node_updates_mutex_;
+    std::vector<NodeLatestUpdate> node_updates_;
+
     Result MapErrorToResult(Core::Multiplayer::ErrorCode error) {
         switch (error) {
         case Core::Multiplayer::ErrorCode::Success:

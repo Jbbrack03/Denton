@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <optional>
+#include <functional>
 
 // Multiplayer system includes
 #include "src/core/multiplayer/common/error_codes.h"
@@ -65,6 +66,15 @@ public:
     virtual ErrorCode SetAdvertiseData(const std::vector<uint8_t>& data) = 0;
     virtual ErrorCode GetSecurityParameter(Service::LDN::SecurityParameter& out_param) = 0;
     virtual ErrorCode GetDisconnectReason(Service::LDN::DisconnectReason& out_reason) = 0;
+
+    // Network details
+    virtual ErrorCode GetIpv4Address(Service::LDN::Ipv4Address& out_address,
+                                     Service::LDN::Ipv4Address& out_subnet) = 0;
+    virtual ErrorCode GetNetworkConfig(Service::LDN::NetworkConfig& out_config) = 0;
+
+    // Event callbacks
+    virtual void RegisterNodeEventCallbacks(std::function<void(uint8_t)> on_node_joined,
+                                            std::function<void(uint8_t)> on_node_left) = 0;
 };
 
 /**
@@ -103,6 +113,11 @@ public:
     MOCK_METHOD(ErrorCode, SetAdvertiseData, (const std::vector<uint8_t>&), (override));
     MOCK_METHOD(ErrorCode, GetSecurityParameter, (Service::LDN::SecurityParameter&), (override));
     MOCK_METHOD(ErrorCode, GetDisconnectReason, (Service::LDN::DisconnectReason&), (override));
+    MOCK_METHOD(ErrorCode, GetIpv4Address,
+                (Service::LDN::Ipv4Address&, Service::LDN::Ipv4Address&), (override));
+    MOCK_METHOD(ErrorCode, GetNetworkConfig, (Service::LDN::NetworkConfig&), (override));
+    MOCK_METHOD(void, RegisterNodeEventCallbacks,
+                (std::function<void(uint8_t)>, std::function<void(uint8_t)>), (override));
 };
 
 /**
