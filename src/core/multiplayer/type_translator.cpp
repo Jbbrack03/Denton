@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <random>
 
 #include "sudachi/src/core/hle/service/ldn/ldn_types.h"
 
@@ -91,14 +92,10 @@ public:
     std::memcpy(ldn.user_name.data(), internal.user_name.data(), name_size);
 
     // Convert MAC address
-    if (internal.mac_address.size() >= 6) {
-      std::memcpy(ldn.mac_address.raw.data(), internal.mac_address.data(), 6);
-    }
+    std::memcpy(ldn.mac_address.raw.data(), internal.mac_address.data(), 6);
 
     // Convert IPv4 address
-    if (internal.ipv4_address.size() >= 4) {
-      std::memcpy(ldn.ipv4_address.data(), internal.ipv4_address.data(), 4);
-    }
+    std::memcpy(ldn.ipv4_address.data(), internal.ipv4_address.data(), 4);
 
     return ldn;
   }
@@ -119,11 +116,9 @@ public:
     internal.user_name.assign(name_data, name_end);
 
     // Convert MAC address
-    internal.mac_address.resize(6);
     std::memcpy(internal.mac_address.data(), ldn.mac_address.raw.data(), 6);
 
     // Convert IPv4 address
-    internal.ipv4_address.resize(4);
     std::memcpy(internal.ipv4_address.data(), ldn.ipv4_address.data(), 4);
 
     return internal;
@@ -210,37 +205,29 @@ public:
   }
 
   Service::LDN::MacAddress
-  ToLdnMacAddress(const std::vector<uint8_t> &internal_mac) override {
+  ToLdnMacAddress(const std::array<uint8_t, 6> &internal_mac) override {
     Service::LDN::MacAddress ldn_mac{};
-
-    if (internal_mac.size() >= 6) {
-      std::memcpy(ldn_mac.raw.data(), internal_mac.data(), 6);
-    }
-
+    std::memcpy(ldn_mac.raw.data(), internal_mac.data(), 6);
     return ldn_mac;
   }
 
-  std::vector<uint8_t>
+  std::array<uint8_t, 6>
   FromLdnMacAddress(const Service::LDN::MacAddress &ldn_mac) override {
-    std::vector<uint8_t> internal_mac(6);
+    std::array<uint8_t, 6> internal_mac{};
     std::memcpy(internal_mac.data(), ldn_mac.raw.data(), 6);
     return internal_mac;
   }
 
   Service::LDN::Ipv4Address
-  ToLdnIpv4Address(const std::vector<uint8_t> &internal_ip) override {
+  ToLdnIpv4Address(const std::array<uint8_t, 4> &internal_ip) override {
     Service::LDN::Ipv4Address ldn_ip{};
-
-    if (internal_ip.size() >= 4) {
-      std::memcpy(ldn_ip.data(), internal_ip.data(), 4);
-    }
-
+    std::memcpy(ldn_ip.data(), internal_ip.data(), 4);
     return ldn_ip;
   }
 
-  std::vector<uint8_t>
+  std::array<uint8_t, 4>
   FromLdnIpv4Address(const Service::LDN::Ipv4Address &ldn_ip) override {
-    std::vector<uint8_t> internal_ip(4);
+    std::array<uint8_t, 4> internal_ip{};
     std::memcpy(internal_ip.data(), ldn_ip.data(), 4);
     return internal_ip;
   }
@@ -287,10 +274,11 @@ public:
           ldn.security_config.passphrase_size);
     }
 
-    // Generate session ID (placeholder - should be generated properly)
+    // Generate cryptographically secure random session ID
     internal.session_id.resize(16);
-    for (size_t i = 0; i < 16; ++i) {
-      internal.session_id[i] = static_cast<uint8_t>(i); // Placeholder
+    std::random_device rd;
+    for (auto &byte : internal.session_id) {
+      byte = static_cast<uint8_t>(rd());
     }
 
     return internal;

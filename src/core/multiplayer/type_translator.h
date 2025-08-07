@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <array>
 
 // Forward declarations for LDN types
 namespace Service::LDN {
@@ -42,8 +43,8 @@ struct InternalNetworkInfo {
 struct InternalNodeInfo {
     uint8_t node_id;
     std::string user_name;
-    std::vector<uint8_t> mac_address;
-    std::vector<uint8_t> ipv4_address;
+    std::array<uint8_t, 6> mac_address{};
+    std::array<uint8_t, 4> ipv4_address{};
     bool is_connected;
     uint16_t local_communication_version;
 };
@@ -89,11 +90,11 @@ public:
         const std::vector<Service::LDN::NetworkInfo>& ldn_results) = 0;
     
     // Address translations
-    virtual Service::LDN::MacAddress ToLdnMacAddress(const std::vector<uint8_t>& internal_mac) = 0;
-    virtual std::vector<uint8_t> FromLdnMacAddress(const Service::LDN::MacAddress& ldn_mac) = 0;
-    
-    virtual Service::LDN::Ipv4Address ToLdnIpv4Address(const std::vector<uint8_t>& internal_ip) = 0;
-    virtual std::vector<uint8_t> FromLdnIpv4Address(const Service::LDN::Ipv4Address& ldn_ip) = 0;
+    virtual Service::LDN::MacAddress ToLdnMacAddress(const std::array<uint8_t, 6>& internal_mac) = 0;
+    virtual std::array<uint8_t, 6> FromLdnMacAddress(const Service::LDN::MacAddress& ldn_mac) = 0;
+
+    virtual Service::LDN::Ipv4Address ToLdnIpv4Address(const std::array<uint8_t, 4>& internal_ip) = 0;
+    virtual std::array<uint8_t, 4> FromLdnIpv4Address(const Service::LDN::Ipv4Address& ldn_ip) = 0;
     
     // Configuration translations
     virtual Service::LDN::CreateNetworkConfig ToLdnCreateConfig(const InternalSessionInfo& internal) = 0;

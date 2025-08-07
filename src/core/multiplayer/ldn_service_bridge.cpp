@@ -19,7 +19,9 @@ namespace Service::LDN {
  */
 class ConcreteLdnServiceBridge : public LdnServiceBridge {
 public:
-    using LdnServiceBridge::LdnServiceBridge;
+    ConcreteLdnServiceBridge(std::unique_ptr<Core::Multiplayer::HLE::BackendFactory> factory)
+        : LdnServiceBridge(std::move(factory)),
+          error_mapper_(Core::Multiplayer::HLE::CreateErrorCodeMapper()) {}
 
     Result Initialize() override {
         if (current_state_ != State::None) {
@@ -39,7 +41,7 @@ public:
         // Initialize the backend
         auto error = current_backend_->Initialize();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
 
         // Register callbacks for node join/leave events
@@ -76,7 +78,7 @@ public:
         
         auto error = current_backend_->CreateNetwork(config);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::AccessPointCreated;
@@ -94,7 +96,7 @@ public:
         
         auto error = current_backend_->DestroyNetwork();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::AccessPointOpened;
@@ -112,7 +114,7 @@ public:
         
         auto error = current_backend_->OpenAccessPoint();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::AccessPointOpened;
@@ -136,7 +138,7 @@ public:
         
         auto error = current_backend_->CloseAccessPoint();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::Initialized;
@@ -154,7 +156,7 @@ public:
         
         auto error = current_backend_->OpenStation();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::StationOpened;
@@ -178,7 +180,7 @@ public:
         
         auto error = current_backend_->CloseStation();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::Initialized;
@@ -197,7 +199,7 @@ public:
         
         auto error = current_backend_->Connect(connect_data, network_info);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::StationConnected;
@@ -215,7 +217,7 @@ public:
         
         auto error = current_backend_->Disconnect();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         current_state_ = State::StationOpened;
@@ -235,7 +237,7 @@ public:
         
         auto error = current_backend_->Scan(out_networks, filter);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         return ResultSuccess;
@@ -253,7 +255,7 @@ public:
         
         auto error = current_backend_->GetNetworkInfo(out_info);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         return ResultSuccess;
@@ -284,7 +286,7 @@ public:
 
         auto error = current_backend_->GetIpv4Address(out_address, out_subnet);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
 
         return ResultSuccess;
@@ -297,7 +299,7 @@ public:
 
         auto error = current_backend_->GetNetworkConfig(out_config);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
 
         return ResultSuccess;
@@ -310,7 +312,7 @@ public:
         
         auto error = current_backend_->GetSecurityParameter(out_param);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         return ResultSuccess;
@@ -323,7 +325,7 @@ public:
         
         auto error = current_backend_->GetDisconnectReason(out_reason);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         return ResultSuccess;
@@ -344,19 +346,31 @@ public:
         
         auto error = current_backend_->SetAdvertiseData(data);
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         return ResultSuccess;
     }
-    
+
     Result SetStationAcceptPolicy(AcceptPolicy policy) override {
-        // Implementation placeholder - will be enhanced
+        if (!current_backend_) {
+            return ResultInternalError;
+        }
+        auto error = current_backend_->SetStationAcceptPolicy(policy);
+        if (error != Core::Multiplayer::ErrorCode::Success) {
+            return error_mapper_->MapToLdnResult(error);
+        }
         return ResultSuccess;
     }
-    
+
     Result AddAcceptFilterEntry(const MacAddress& mac_address) override {
-        // Implementation placeholder - will be enhanced
+        if (!current_backend_) {
+            return ResultInternalError;
+        }
+        auto error = current_backend_->AddAcceptFilterEntry(mac_address);
+        if (error != Core::Multiplayer::ErrorCode::Success) {
+            return error_mapper_->MapToLdnResult(error);
+        }
         return ResultSuccess;
     }
     
@@ -381,7 +395,7 @@ public:
         // Initialize new backend
         auto error = current_backend_->Initialize();
         if (error != Core::Multiplayer::ErrorCode::Success) {
-            return MapErrorToResult(error);
+            return error_mapper_->MapToLdnResult(error);
         }
         
         return ResultSuccess;
@@ -392,35 +406,6 @@ public:
     }
 
 private:
-    Result MapErrorToResult(Core::Multiplayer::ErrorCode error) {
-        // Minimal error mapping to make tests pass
-        switch (error) {
-        case Core::Multiplayer::ErrorCode::Success:
-            return ResultSuccess;
-        case Core::Multiplayer::ErrorCode::ConnectionFailed:
-        case Core::Multiplayer::ErrorCode::ConnectionTimeout:
-        case Core::Multiplayer::ErrorCode::ConnectionRefused:
-            return ResultConnectionFailed;
-        case Core::Multiplayer::ErrorCode::AuthenticationFailed:
-            return ResultAuthenticationFailed;
-        case Core::Multiplayer::ErrorCode::NetworkTimeout:
-            return ResultAuthenticationTimeout;
-        case Core::Multiplayer::ErrorCode::MessageTooLarge:
-            return ResultAdvertiseDataTooLarge;
-        case Core::Multiplayer::ErrorCode::InvalidParameter:
-        case Core::Multiplayer::ErrorCode::ConfigurationInvalid:
-            return ResultBadInput;
-        case Core::Multiplayer::ErrorCode::InvalidState:
-            return ResultBadState;
-        case Core::Multiplayer::ErrorCode::MaxPeersExceeded:
-            return ResultMaximumNodeCount;
-        case Core::Multiplayer::ErrorCode::PermissionDenied:
-            return ResultAccessPointConnectionFailed;
-        default:
-            return ResultInternalError;
-        }
-    }
-
     void OnNodeJoined(uint8_t node_id) {
         std::lock_guard<std::mutex> lock(node_updates_mutex_);
         NodeLatestUpdate update{};
@@ -439,6 +424,7 @@ private:
 
     std::mutex node_updates_mutex_;
     std::vector<NodeLatestUpdate> node_updates_;
+    std::unique_ptr<Core::Multiplayer::HLE::ErrorCodeMapper> error_mapper_;
 };
 
 } // namespace Service::LDN

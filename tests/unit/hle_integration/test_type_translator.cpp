@@ -8,6 +8,8 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <array>
+#include <random>
 
 // LDN HLE includes
 #include "sudachi/src/core/hle/service/ldn/ldn_types.h"
@@ -50,8 +52,8 @@ struct InternalNetworkInfo {
 struct InternalNodeInfo {
     uint8_t node_id;
     std::string user_name;
-    std::vector<uint8_t> mac_address;
-    std::vector<uint8_t> ipv4_address;
+    std::array<uint8_t, 6> mac_address{};
+    std::array<uint8_t, 4> ipv4_address{};
     bool is_connected;
     uint16_t local_communication_version;
 };
@@ -98,11 +100,11 @@ public:
         const std::vector<Service::LDN::NetworkInfo>& ldn_results) = 0;
     
     // Address translations
-    virtual Service::LDN::MacAddress ToLdnMacAddress(const std::vector<uint8_t>& internal_mac) = 0;
-    virtual std::vector<uint8_t> FromLdnMacAddress(const Service::LDN::MacAddress& ldn_mac) = 0;
-    
-    virtual Service::LDN::Ipv4Address ToLdnIpv4Address(const std::vector<uint8_t>& internal_ip) = 0;
-    virtual std::vector<uint8_t> FromLdnIpv4Address(const Service::LDN::Ipv4Address& ldn_ip) = 0;
+    virtual Service::LDN::MacAddress ToLdnMacAddress(const std::array<uint8_t,6>& internal_mac) = 0;
+    virtual std::array<uint8_t,6> FromLdnMacAddress(const Service::LDN::MacAddress& ldn_mac) = 0;
+
+    virtual Service::LDN::Ipv4Address ToLdnIpv4Address(const std::array<uint8_t,4>& internal_ip) = 0;
+    virtual std::array<uint8_t,4> FromLdnIpv4Address(const Service::LDN::Ipv4Address& ldn_ip) = 0;
     
     // Configuration translations
     virtual Service::LDN::CreateNetworkConfig ToLdnCreateConfig(const InternalSessionInfo& internal) = 0;
@@ -237,14 +239,10 @@ public:
         std::memcpy(ldn.user_name.data(), internal.user_name.data(), name_size);
         
         // Convert MAC address
-        if (internal.mac_address.size() >= 6) {
-            std::memcpy(ldn.mac_address.raw.data(), internal.mac_address.data(), 6);
-        }
-        
+        std::memcpy(ldn.mac_address.raw.data(), internal.mac_address.data(), 6);
+
         // Convert IPv4 address
-        if (internal.ipv4_address.size() >= 4) {
-            std::memcpy(ldn.ipv4_address.data(), internal.ipv4_address.data(), 4);
-        }
+        std::memcpy(ldn.ipv4_address.data(), internal.ipv4_address.data(), 4);
         
         return ldn;
     }
@@ -263,11 +261,9 @@ public:
         internal.user_name.assign(name_data, name_end);
         
         // Convert MAC address
-        internal.mac_address.resize(6);
         std::memcpy(internal.mac_address.data(), ldn.mac_address.raw.data(), 6);
-        
+
         // Convert IPv4 address
-        internal.ipv4_address.resize(4);
         std::memcpy(internal.ipv4_address.data(), ldn.ipv4_address.data(), 4);
         
         return internal;
@@ -351,34 +347,26 @@ public:
         return internal_results;
     }
     
-    Service::LDN::MacAddress ToLdnMacAddress(const std::vector<uint8_t>& internal_mac) override {
+    Service::LDN::MacAddress ToLdnMacAddress(const std::array<uint8_t,6>& internal_mac) override {
         Service::LDN::MacAddress ldn_mac{};
-        
-        if (internal_mac.size() >= 6) {
-            std::memcpy(ldn_mac.raw.data(), internal_mac.data(), 6);
-        }
-        
+        std::memcpy(ldn_mac.raw.data(), internal_mac.data(), 6);
         return ldn_mac;
     }
-    
-    std::vector<uint8_t> FromLdnMacAddress(const Service::LDN::MacAddress& ldn_mac) override {
-        std::vector<uint8_t> internal_mac(6);
+
+    std::array<uint8_t,6> FromLdnMacAddress(const Service::LDN::MacAddress& ldn_mac) override {
+        std::array<uint8_t,6> internal_mac{};
         std::memcpy(internal_mac.data(), ldn_mac.raw.data(), 6);
         return internal_mac;
     }
-    
-    Service::LDN::Ipv4Address ToLdnIpv4Address(const std::vector<uint8_t>& internal_ip) override {
+
+    Service::LDN::Ipv4Address ToLdnIpv4Address(const std::array<uint8_t,4>& internal_ip) override {
         Service::LDN::Ipv4Address ldn_ip{};
-        
-        if (internal_ip.size() >= 4) {
-            std::memcpy(ldn_ip.data(), internal_ip.data(), 4);
-        }
-        
+        std::memcpy(ldn_ip.data(), internal_ip.data(), 4);
         return ldn_ip;
     }
-    
-    std::vector<uint8_t> FromLdnIpv4Address(const Service::LDN::Ipv4Address& ldn_ip) override {
-        std::vector<uint8_t> internal_ip(4);
+
+    std::array<uint8_t,4> FromLdnIpv4Address(const Service::LDN::Ipv4Address& ldn_ip) override {
+        std::array<uint8_t,4> internal_ip{};
         std::memcpy(internal_ip.data(), ldn_ip.data(), 4);
         return internal_ip;
     }
@@ -423,10 +411,11 @@ public:
                 ldn.security_config.passphrase_size);
         }
         
-        // Generate session ID (placeholder - should be generated properly)
+        // Generate random session ID
         internal.session_id.resize(16);
-        for (size_t i = 0; i < 16; ++i) {
-            internal.session_id[i] = static_cast<uint8_t>(i);  // Placeholder
+        std::random_device rd;
+        for (auto &byte : internal.session_id) {
+            byte = static_cast<uint8_t>(rd());
         }
         
         return internal;
@@ -560,10 +549,10 @@ public:
                 (const std::vector<InternalScanResult>&), (override));
     MOCK_METHOD(std::vector<InternalScanResult>, FromLdnScanResults, 
                 (const std::vector<Service::LDN::NetworkInfo>&), (override));
-    MOCK_METHOD(Service::LDN::MacAddress, ToLdnMacAddress, (const std::vector<uint8_t>&), (override));
-    MOCK_METHOD(std::vector<uint8_t>, FromLdnMacAddress, (const Service::LDN::MacAddress&), (override));
-    MOCK_METHOD(Service::LDN::Ipv4Address, ToLdnIpv4Address, (const std::vector<uint8_t>&), (override));
-    MOCK_METHOD(std::vector<uint8_t>, FromLdnIpv4Address, (const Service::LDN::Ipv4Address&), (override));
+    MOCK_METHOD(Service::LDN::MacAddress, ToLdnMacAddress, (const std::array<uint8_t,6>&), (override));
+    MOCK_METHOD(std::array<uint8_t,6>, FromLdnMacAddress, (const Service::LDN::MacAddress&), (override));
+    MOCK_METHOD(Service::LDN::Ipv4Address, ToLdnIpv4Address, (const std::array<uint8_t,4>&), (override));
+    MOCK_METHOD(std::array<uint8_t,4>, FromLdnIpv4Address, (const Service::LDN::Ipv4Address&), (override));
     MOCK_METHOD(Service::LDN::CreateNetworkConfig, ToLdnCreateConfig, (const InternalSessionInfo&), (override));
     MOCK_METHOD(InternalSessionInfo, FromLdnCreateConfig, (const Service::LDN::CreateNetworkConfig&), (override));
     MOCK_METHOD(Service::LDN::SecurityParameter, ToLdnSecurityParameter, (const std::vector<uint8_t>&), (override));
@@ -766,8 +755,8 @@ TEST_F(TypeTranslatorTest, FromLdnNodeInfoHandlesUserNameLength) {
 
 TEST_F(TypeTranslatorTest, ConvertAddresses) {
     // Given: Internal addresses
-    std::vector<uint8_t> internal_mac = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
-    std::vector<uint8_t> internal_ip = {192, 168, 1, 100};
+    std::array<uint8_t, 6> internal_mac = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+    std::array<uint8_t, 4> internal_ip = {192, 168, 1, 100};
     
     // When: Converting to LDN addresses
     auto ldn_mac = translator->ToLdnMacAddress(internal_mac);
@@ -817,6 +806,20 @@ TEST_F(TypeTranslatorTest, ConvertSessionId) {
     for (size_t i = 0; i < sizeof(ldn_id); ++i) {
         EXPECT_EQ(converted_id[i], ldn_bytes[i]);
     }
+}
+
+TEST_F(TypeTranslatorTest, GeneratesRandomSessionId) {
+    // Given: LDN create network config
+    Service::LDN::CreateNetworkConfig config{};
+
+    // When: Translating twice
+    auto session1 = translator->FromLdnCreateConfig(config).session_id;
+    auto session2 = translator->FromLdnCreateConfig(config).session_id;
+
+    // Then: Session IDs should be 16 bytes and distinct
+    EXPECT_EQ(session1.size(), 16);
+    EXPECT_EQ(session2.size(), 16);
+    EXPECT_NE(session1, session2);
 }
 
 TEST_F(TypeTranslatorTest, ConvertScanResults) {
