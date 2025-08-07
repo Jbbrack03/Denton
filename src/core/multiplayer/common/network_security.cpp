@@ -180,41 +180,41 @@ ValidationResult NetworkInputValidator::ValidatePacketContent(const std::vector<
 }
 
 bool NetworkInputValidator::IsValidUtf8(const std::string& str) {
-    // Simple UTF-8 validation (can be enhanced with proper UTF-8 library)
-    for (size_t i = 0; i < str.length(); ++i) {
-        unsigned char c = str[i];
-        
-        if (c < 0x80) {
-            // ASCII character
-            continue;
-        } else if (c < 0xC0) {
-            // Invalid UTF-8 start byte
-            return false;
-        } else if (c < 0xE0) {
-            // 2-byte sequence
-            if (i + 1 >= str.length() || (str[i + 1] & 0xC0) != 0x80) {
+    // UTF-8 validation based on Markus Kuhn's well-tested algorithm
+    // http://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
+    const unsigned char* s = reinterpret_cast<const unsigned char*>(str.data());
+    const unsigned char* end = s + str.size();
+
+    while (s < end) {
+        if (*s < 0x80) {
+            // 0xxxxxxx
+            ++s;
+        } else if ((s[0] & 0xE0) == 0xC0) {
+            // 110xxxxx 10xxxxxx
+            if (s + 1 >= end || (s[1] & 0xC0) != 0x80 || (s[0] & 0xFE) == 0xC0)
+                return false; // overlong or invalid continuation
+            s += 2;
+        } else if ((s[0] & 0xF0) == 0xE0) {
+            // 1110xxxx 10xxxxxx 10xxxxxx
+            if (s + 2 >= end || (s[1] & 0xC0) != 0x80 || (s[2] & 0xC0) != 0x80 ||
+                (s[0] == 0xE0 && (s[1] & 0xE0) == 0x80) ||         // overlong
+                (s[0] == 0xED && (s[1] & 0xE0) == 0xA0) ||         // surrogate range
+                (s[0] == 0xEF && s[1] == 0xBF && (s[2] & 0xFE) == 0xBE)) // U+FFFE or U+FFFF
                 return false;
-            }
-            i += 1;
-        } else if (c < 0xF0) {
-            // 3-byte sequence
-            if (i + 2 >= str.length() || (str[i + 1] & 0xC0) != 0x80 || (str[i + 2] & 0xC0) != 0x80) {
+            s += 3;
+        } else if ((s[0] & 0xF8) == 0xF0) {
+            // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+            if (s + 3 >= end || (s[1] & 0xC0) != 0x80 || (s[2] & 0xC0) != 0x80 ||
+                (s[3] & 0xC0) != 0x80 ||
+                (s[0] == 0xF0 && (s[1] & 0xF0) == 0x80) ||         // overlong
+                (s[0] == 0xF4 && s[1] > 0x8F) || s[0] > 0xF4)       // > U+10FFFF
                 return false;
-            }
-            i += 2;
-        } else if (c < 0xF8) {
-            // 4-byte sequence
-            if (i + 3 >= str.length() || (str[i + 1] & 0xC0) != 0x80 || 
-                (str[i + 2] & 0xC0) != 0x80 || (str[i + 3] & 0xC0) != 0x80) {
-                return false;
-            }
-            i += 3;
+            s += 4;
         } else {
-            // Invalid UTF-8
-            return false;
+            return false; // invalid leading byte
         }
     }
-    
+
     return true;
 }
 

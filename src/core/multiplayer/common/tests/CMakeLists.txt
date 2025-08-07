@@ -30,4 +30,21 @@ if(ENABLE_TESTING)
         TIMEOUT 60
         LABELS "integration;error_handling"
     )
+
+    add_executable(test_network_security_utf8
+        test_utf8_validation.cpp
+    )
+
+    target_link_libraries(test_network_security_utf8
+        PRIVATE
+            sudachi_multiplayer_common
+            gtest_main
+    )
+
+    target_include_directories(test_network_security_utf8
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/..
+    )
+
+    add_test(NAME NetworkSecurityUtf8Tests COMMAND test_network_security_utf8)
 endif()

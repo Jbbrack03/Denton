@@ -4,6 +4,7 @@
 #pragma once
 
 #include "error_codes.h"
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
