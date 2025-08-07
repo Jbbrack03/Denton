@@ -5,7 +5,7 @@
 #include <chrono>
 #include <thread>
 #include <sstream>
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 namespace Core::Multiplayer {
 
@@ -185,8 +185,9 @@ private:
         metrics_.consecutive_failures = 0;
         
         if (listener_) {
-            // For minimal implementation, just log success
-            std::cout << "Circuit breaker: Success recorded" << std::endl;
+            if (spdlog::should_log(spdlog::level::info)) {
+                spdlog::info("Circuit breaker: Success recorded");
+            }
         }
         
         // If in half-open state and we've had enough successes, close the circuit
@@ -202,8 +203,9 @@ private:
         metrics_.consecutive_failures = consecutive_failures_;
         
         if (listener_) {
-            // For minimal implementation, just log failure
-            std::cout << "Circuit breaker: Failure recorded, error " << static_cast<int>(error) << std::endl;
+            if (spdlog::should_log(spdlog::level::warn)) {
+                spdlog::warn("Circuit breaker: Failure recorded, error {}", static_cast<int>(error));
+            }
         }
         
         // Check if we should open the circuit
@@ -221,30 +223,36 @@ private:
         
         if (new_state == CircuitBreakerState::Open) {
             if (listener_) {
-                // For minimal implementation, just log
-                std::cout << "Circuit breaker: Circuit opened after " << consecutive_failures_ << " failures" << std::endl;
+                if (spdlog::should_log(spdlog::level::warn)) {
+                    spdlog::warn("Circuit breaker: Circuit opened after {} failures", consecutive_failures_);
+                }
             }
         } else if (new_state == CircuitBreakerState::Closed) {
             if (listener_) {
-                // For minimal implementation, just log
-                std::cout << "Circuit breaker: Circuit closed" << std::endl;
+                if (spdlog::should_log(spdlog::level::info)) {
+                    spdlog::info("Circuit breaker: Circuit closed");
+                }
             }
         } else if (new_state == CircuitBreakerState::HalfOpen) {
             half_open_calls_ = 0;
             if (listener_) {
-                // For minimal implementation, just log
-                std::cout << "Circuit breaker: Half-open test started" << std::endl;
+                if (spdlog::should_log(spdlog::level::info)) {
+                    spdlog::info("Circuit breaker: Half-open test started");
+                }
             }
         }
-        
+
         if (listener_) {
-            // For minimal implementation, just log state change
-            std::cout << "Circuit breaker: State changed from " << StateToString(old_state) 
-                      << " to " << StateToString(new_state) << std::endl;
+            if (spdlog::should_log(spdlog::level::info)) {
+                spdlog::info("Circuit breaker: State changed from {} to {}",
+                             StateToString(old_state), StateToString(new_state));
+            }
         }
-        
-        std::cout << "Circuit breaker state changed from " << StateToString(old_state) 
-                  << " to " << StateToString(new_state) << std::endl;
+
+        if (spdlog::should_log(spdlog::level::info)) {
+            spdlog::info("Circuit breaker state changed from {} to {}",
+                         StateToString(old_state), StateToString(new_state));
+        }
     }
 
     void TransitionToHalfOpen() {
