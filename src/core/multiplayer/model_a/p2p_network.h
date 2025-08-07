@@ -37,7 +37,7 @@ public:
     std::future<MultiplayerResult> ConnectToPeer(const std::string& peer_id, const std::string& multiaddr) override;
     MultiplayerResult DisconnectFromPeer(const std::string& peer_id) override;
     bool IsConnectedToPeer(const std::string& peer_id) const override;
-    bool IsConnectedViaaRelay(const std::string& peer_id) const override;
+    bool IsConnectedViaRelay(const std::string& peer_id) const override;
     size_t GetConnectionCount() const override;
     std::vector<std::string> GetConnectedPeers() const override;
 

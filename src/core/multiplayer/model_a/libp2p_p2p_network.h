@@ -60,7 +60,11 @@ public:
     MultiplayerResult ConnectToPeer(const std::string& peer_id, const std::string& multiaddr);
     MultiplayerResult DisconnectFromPeer(const std::string& peer_id);
     bool IsConnectedToPeer(const std::string& peer_id) const;
-    bool IsConnectedViaaRelay(const std::string& peer_id) const;
+    bool IsConnectedViaRelay(const std::string& peer_id) const;
+    [[deprecated("Use IsConnectedViaRelay")]]
+    bool IsConnectedViaaRelay(const std::string& peer_id) const {
+        return IsConnectedViaRelay(peer_id);
+    }
     size_t GetConnectionCount() const;
     std::vector<std::string> GetConnectedPeers() const;
 

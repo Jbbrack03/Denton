@@ -48,7 +48,7 @@ std::string P2PNetwork::GetPeerId() const { throw std::runtime_error("Not implem
 MultiplayerResult P2PNetwork::ConnectToPeer(const std::string&, const std::string&) { throw std::runtime_error("Not implemented in production mode"); }
 MultiplayerResult P2PNetwork::DisconnectFromPeer(const std::string&) { throw std::runtime_error("Not implemented in production mode"); }
 bool P2PNetwork::IsConnectedToPeer(const std::string&) const { throw std::runtime_error("Not implemented in production mode"); }
-bool P2PNetwork::IsConnectedViaaRelay(const std::string&) const { throw std::runtime_error("Not implemented in production mode"); }
+bool P2PNetwork::IsConnectedViaRelay(const std::string&) const { throw std::runtime_error("Not implemented in production mode"); }
 size_t P2PNetwork::GetConnectionCount() const { throw std::runtime_error("Not implemented in production mode"); }
 std::vector<std::string> P2PNetwork::GetConnectedPeers() const { throw std::runtime_error("Not implemented in production mode"); }
 MultiplayerResult P2PNetwork::SendMessage(const std::string&, const std::string&, const std::vector<uint8_t>&) { throw std::runtime_error("Not implemented in production mode"); }
