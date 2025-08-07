@@ -1034,32 +1034,8 @@ TEST_F(TypeTranslatorIntegrationTest, MockTranslatorUsage) {
 /**
  * Critical Test: This test demonstrates the type translation integration point
  */
-TEST_F(TypeTranslatorTest, DISABLED_CriticalTypeTranslationIntegration) {
-    // This test shows how the type translator will be used in the actual system
-    
-    // Given: LDN Service Bridge with type translator
-    // auto bridge = std::make_unique<LdnServiceBridge>(factory);
-    // bridge->SetTypeTranslator(std::move(translator));
-    
-    // When: Backend returns internal types and LDN service needs LDN types
-    // InternalNetworkInfo backend_network = backend->GetNetworkInfo();
-    // Service::LDN::NetworkInfo ldn_network = bridge->TranslateToLdn(backend_network);
-    // return ldn_network;  // This is returned to the HLE service
-    
-    // And when: LDN service provides LDN types and backend needs internal types
-    // Service::LDN::CreateNetworkConfig ldn_config = /* from IPC */;
-    // InternalSessionInfo internal_session = bridge->TranslateFromLdn(ldn_config);
-    // backend->CreateNetwork(internal_session);
-    
-    // The type translator is critical for proper data flow between:
-    // 1. LDN HLE service (uses Service::LDN types)
-    // 2. LDN Service Bridge (translates between type systems)
-    // 3. Backend implementations (use internal multiplayer types)
-    
-    FAIL() << "Type Translator integration point missing: "
-           << "LdnServiceBridge must use TypeTranslator to convert "
-           << "between Service::LDN types and internal multiplayer types "
-           << "for proper data exchange with backend implementations.";
+TEST_F(TypeTranslatorTest, CriticalTypeTranslationIntegration) {
+    GTEST_SKIP() << "Type translation integration requires LdnServiceBridge implementation.";
 }
 
 } // namespace Core::Multiplayer::HLE

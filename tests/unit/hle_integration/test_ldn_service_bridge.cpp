@@ -7,9 +7,7 @@
 #include <vector>
 #include <mutex>
 
-// Include the backend interfaces from previous test files
-#include "test_multiplayer_backend_interface.cpp"
-#include "test_backend_factory.cpp"
+#include "test_helpers.h"
 
 // LDN HLE service includes
 #include "sudachi/src/core/hle/service/ldn/ldn_types.h"
@@ -77,7 +75,6 @@ protected:
 
 /**
  * Concrete LDN Service Bridge Implementation
- * This implementation will FAIL until backend classes exist
  */
 class ConcreteLdnServiceBridge : public LdnServiceBridge {
 public:
@@ -546,7 +543,7 @@ public:
 
 /**
  * Test Suite: LDN Service Bridge
- * These tests MUST FAIL until the bridge implementation is complete
+ * Verifies bridge interactions with multiplayer backends
  */
 class LdnServiceBridgeTest : public ::testing::Test {
 protected:
@@ -572,98 +569,69 @@ protected:
 };
 
 TEST_F(LdnServiceBridgeTest, InitializeSuccess) {
-    // Given: Fresh bridge instance
     State initial_state;
     EXPECT_EQ(bridge->GetState(initial_state), ResultSuccess);
     EXPECT_EQ(initial_state, State::None);
-    
-    // When: Initialize is called
     auto result = bridge->Initialize();
-    
-    // Then: Should initialize successfully but WILL FAIL due to missing backend
-    // This test demonstrates the critical missing piece
-    EXPECT_EQ(result, ResultSuccess) << "Bridge initialization failed - backend implementation missing";
-    
+    EXPECT_EQ(result, ResultSuccess);
     State post_init_state;
     EXPECT_EQ(bridge->GetState(post_init_state), ResultSuccess);
     EXPECT_EQ(post_init_state, State::Initialized);
 }
 
 TEST_F(LdnServiceBridgeTest, InitializeFailsWithoutBackend) {
-    // This test will PASS because it demonstrates the expected failure
-    
-    // Given: Bridge with factory that can't create backends
-    auto result = bridge->Initialize();
-    
-    // Then: Should fail because backend creation returns nullptr
-    EXPECT_NE(result, ResultSuccess) << "Bridge should fail when backend creation fails";
+    class NullBackendFactory : public Core::Multiplayer::HLE::BackendFactory {
+    public:
+        std::unique_ptr<Core::Multiplayer::HLE::MultiplayerBackend> CreateBackend(BackendType) override {
+            return nullptr;
+        }
+        BackendType GetPreferredBackend() override { return BackendType::ModelA_Internet; }
+    };
+
+    auto null_factory = std::make_unique<NullBackendFactory>();
+    ConcreteLdnServiceBridge bad_bridge(std::move(null_factory));
+    auto result = bad_bridge.Initialize();
+    EXPECT_EQ(result, ResultInternalError);
 }
 
 TEST_F(LdnServiceBridgeTest, StateTransitionValidation) {
-    // Given: Various bridge states
     State state;
-    
-    // When/Then: State transitions should be validated
-    
-    // Initialize from None should work (if backend exists)
     EXPECT_EQ(bridge->GetState(state), ResultSuccess);
     EXPECT_EQ(state, State::None);
-    
-    // Operations requiring initialization should fail
     auto open_ap_result = bridge->OpenAccessPoint();
     EXPECT_NE(open_ap_result, ResultSuccess);
     EXPECT_EQ(open_ap_result, ResultBadState);
-    
     auto create_network_result = bridge->CreateNetwork({});
     EXPECT_NE(create_network_result, ResultSuccess);
     EXPECT_EQ(create_network_result, ResultBadState);
 }
 
 TEST_F(LdnServiceBridgeTest, AccessPointLifecycle) {
-    // This test will FAIL until backend implementation exists
-    
-    // Given: Initialized bridge (this will fail)
     auto init_result = bridge->Initialize();
-    ASSUME_EQ(init_result, ResultSuccess) << "Cannot test AP lifecycle without working initialization";
-    
-    // When: Access point lifecycle operations are performed
+    ASSUME_EQ(init_result, ResultSuccess);
     auto open_result = bridge->OpenAccessPoint();
     auto create_result = bridge->CreateNetwork({});
     auto destroy_result = bridge->DestroyNetwork();
     auto close_result = bridge->CloseAccessPoint();
-    
-    // Then: Should complete lifecycle successfully
     EXPECT_EQ(open_result, ResultSuccess);
     EXPECT_EQ(create_result, ResultSuccess);
     EXPECT_EQ(destroy_result, ResultSuccess);
     EXPECT_EQ(close_result, ResultSuccess);
-    
-    // Verify final state
     State final_state;
     EXPECT_EQ(bridge->GetState(final_state), ResultSuccess);
     EXPECT_EQ(final_state, State::Initialized);
 }
 
 TEST_F(LdnServiceBridgeTest, StationLifecycle) {
-    // This test will FAIL until backend implementation exists
-    
-    // Given: Initialized bridge
     auto init_result = bridge->Initialize();
     ASSUME_EQ(init_result, ResultSuccess);
-    
-    // When: Station lifecycle operations are performed
     auto open_result = bridge->OpenStation();
-    
-    // Create mock network info for connection
     NetworkInfo network_info{};
     network_info.network_id.intent_id.local_communication_id = 0x0100000000001234ULL;
     ConnectNetworkData connect_data{};
-    
     auto connect_result = bridge->Connect(connect_data, network_info);
     auto disconnect_result = bridge->Disconnect();
     auto close_result = bridge->CloseStation();
-    
-    // Then: Should complete lifecycle successfully
     EXPECT_EQ(open_result, ResultSuccess);
     EXPECT_EQ(connect_result, ResultSuccess);
     EXPECT_EQ(disconnect_result, ResultSuccess);
@@ -671,40 +639,23 @@ TEST_F(LdnServiceBridgeTest, StationLifecycle) {
 }
 
 TEST_F(LdnServiceBridgeTest, NetworkScanning) {
-    // This test will FAIL until backend implementation exists
-    
-    // Given: Initialized bridge
     auto init_result = bridge->Initialize();
     ASSUME_EQ(init_result, ResultSuccess);
-    
-    // When: Network scan is performed
     std::vector<NetworkInfo> networks;
     ScanFilter filter{};
     auto scan_result = bridge->Scan(networks, WifiChannel::Default, filter);
-    
-    // Then: Should return scan results
     EXPECT_EQ(scan_result, ResultSuccess);
-    // Note: networks vector may be empty if no networks found, which is valid
 }
 
 TEST_F(LdnServiceBridgeTest, AdvertiseDataManagement) {
-    // This test will FAIL until backend implementation exists
-    
-    // Given: Bridge with created network
     auto init_result = bridge->Initialize();
     ASSUME_EQ(init_result, ResultSuccess);
-    
     auto open_result = bridge->OpenAccessPoint();
     ASSUME_EQ(open_result, ResultSuccess);
-    
     auto create_result = bridge->CreateNetwork({});
     ASSUME_EQ(create_result, ResultSuccess);
-    
-    // When: Advertise data is set
     std::vector<uint8_t> advertise_data(100, 0xAB);
     auto set_result = bridge->SetAdvertiseData(advertise_data);
-    
-    // Then: Should set advertise data successfully
     EXPECT_EQ(set_result, ResultSuccess);
 }
 
@@ -728,19 +679,11 @@ TEST_F(LdnServiceBridgeTest, AdvertiseDataTooLarge) {
 }
 
 TEST_F(LdnServiceBridgeTest, BackendSwitching) {
-    // This test will FAIL until backend implementation exists
-    
-    // Given: Initialized bridge
     auto init_result = bridge->Initialize();
     ASSUME_EQ(init_result, ResultSuccess);
-    
-    // When: Backend is switched
     auto switch_result = bridge->SwitchBackend(
         Core::Multiplayer::HLE::BackendFactory::BackendType::ModelB_AdHoc);
-    
-    // Then: Should switch successfully
     EXPECT_EQ(switch_result, ResultSuccess);
-    
     auto current_type = bridge->GetCurrentBackendType();
     EXPECT_EQ(current_type, Core::Multiplayer::HLE::BackendFactory::BackendType::ModelB_AdHoc);
 }
@@ -766,6 +709,8 @@ TEST_F(LdnServiceBridgeTest, ErrorCodeMapping) {
  * Integration Tests: LDN Service Bridge with Mock Backend
  * These tests use mocks to verify the bridge integrates correctly
  */
+class MockBackendFactory;
+
 class LdnServiceBridgeIntegrationTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -796,50 +741,15 @@ public:
     MOCK_METHOD(BackendType, GetPreferredBackend, (), (override));
 };
 
-TEST_F(LdnServiceBridgeIntegrationTest, DISABLED_FullIntegrationWillFail) {
-    // This test is disabled because it requires real backend implementations
-    
-    // Given: Bridge with mock factory
-    // auto bridge = std::make_unique<ConcreteLdnServiceBridge>(std::move(mock_factory));
-    
-    // When: Full operations are performed
-    // auto init_result = bridge->Initialize();
-    // ... perform various operations ...
-    
-    // Then: Should work with mock backend
-    // EXPECT_EQ(init_result, ResultSuccess);
-    
-    // Force failure to demonstrate missing implementation
-    FAIL() << "Full LDN Service Bridge integration cannot be tested until "
-           << "backend implementations exist. This test will pass once "
-           << "MultiplayerBackend concrete classes are implemented.";
+TEST_F(LdnServiceBridgeIntegrationTest, FullIntegration) {
+    GTEST_SKIP() << "Full LDN Service Bridge integration requires real backend implementations.";
 }
 
 /**
  * Critical Test: This test demonstrates the exact integration point that's missing
  */
-TEST_F(LdnServiceBridgeTest, DISABLED_CriticalMissingIntegrationPoint) {
-    // This test shows exactly what needs to be implemented
-    
-    // The user_local_communication_service.cpp currently uses:
-    // LANDiscovery lan_discovery;
-    
-    // It MUST be replaced with:
-    // std::unique_ptr<LdnServiceBridge> ldn_bridge;
-    
-    // And all LANDiscovery method calls must be replaced with bridge calls:
-    // OLD: lan_discovery.CreateNetwork(config)
-    // NEW: ldn_bridge->CreateNetwork(config)
-    
-    // OLD: lan_discovery.Scan(networks, filter)
-    // NEW: ldn_bridge->Scan(networks, channel, filter)
-    
-    // This is the critical missing piece that connects everything together
-    
-    FAIL() << "Critical integration point missing: "
-           << "user_local_communication_service.cpp must be updated to use "
-           << "LdnServiceBridge instead of LANDiscovery. This is the key "
-           << "component that bridges LDN HLE service to new multiplayer backends.";
+TEST_F(LdnServiceBridgeTest, CriticalMissingIntegrationPoint) {
+    GTEST_SKIP() << "user_local_communication_service.cpp must be updated to use LdnServiceBridge.";
 }
 
 } // namespace Core::HLE::Service::LDN

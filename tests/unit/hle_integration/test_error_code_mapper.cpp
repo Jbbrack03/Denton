@@ -652,29 +652,8 @@ TEST_F(ErrorCodeMapperIntegrationTest, MockMapperUsage) {
 /**
  * Critical Test: This test demonstrates what's needed for complete integration
  */
-TEST_F(ErrorCodeMapperTest, DISABLED_CriticalErrorHandlingIntegration) {
-    // This test shows how the error mapper will be used in the actual system
-    
-    // Given: LDN Service Bridge with error mapper
-    // auto bridge = std::make_unique<LdnServiceBridge>(factory);
-    // bridge->SetErrorMapper(std::move(mapper));
-    
-    // When: Backend returns multiplayer error
-    // ErrorCode backend_error = backend->SomeOperation();
-    
-    // Then: Bridge should map it to LDN result for HLE service
-    // Service::LDN::Result ldn_result = bridge->MapError(backend_error);
-    // return ldn_result;  // This is returned to the game
-    
-    // The error mapper is critical for proper error communication between:
-    // 1. Backend implementations (return ErrorCode)
-    // 2. LDN Service Bridge (maps ErrorCode -> LDN::Result)
-    // 3. HLE service (returns LDN::Result to games)
-    
-    FAIL() << "Error Code Mapper integration point missing: "
-           << "LdnServiceBridge must use ErrorCodeMapper to translate "
-           << "backend ErrorCode values to Service::LDN::Result values "
-           << "for proper error reporting to games.";
+TEST_F(ErrorCodeMapperTest, CriticalErrorHandlingIntegration) {
+    GTEST_SKIP() << "Error Code Mapper integration requires LdnServiceBridge implementation.";
 }
 
 } // namespace Core::Multiplayer::HLE

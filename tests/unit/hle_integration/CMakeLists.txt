@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: 2025 sudachi Emulator Project
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# HLE Integration Tests - Critical bridge between LDN HLE and multiplayer backends
-# These tests MUST FAIL initially (red phase) to guide implementation
+# HLE Integration Tests - Bridge between LDN HLE and multiplayer backends
 
 set(HLE_INTEGRATION_TEST_SOURCES
     test_multiplayer_backend_interface.cpp
@@ -80,7 +79,7 @@ add_custom_target(test_type_translation
 add_custom_target(test_hle_integration
     COMMAND $<TARGET_FILE:hle_integration_tests>
     DEPENDS hle_integration_tests
-    COMMENT "Running all HLE integration tests (these should FAIL until implementation exists)"
+    COMMENT "Running all HLE integration tests"
 )
 
 # Add to parent test suite
@@ -107,13 +106,6 @@ else()
     target_compile_options(hle_integration_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-# Custom target to demonstrate expected test failures
-add_custom_target(demonstrate_test_failures
-    COMMAND echo "Running HLE integration tests - these SHOULD FAIL until implementation exists:"
-    COMMAND $<TARGET_FILE:hle_integration_tests> || echo "EXPECTED: Tests failed because implementations are missing"
-    DEPENDS hle_integration_tests
-    COMMENT "Demonstrating expected test failures in TDD red phase"
-)
 
 # Add metadata for test documentation
 set_property(TARGET hle_integration_tests PROPERTY
@@ -129,5 +121,5 @@ set_property(TARGET hle_integration_tests PROPERTY
     TIMEOUT 60
 )
 
-message(STATUS "HLE Integration Tests configured - these tests will FAIL until Phase 6 implementation is complete")
+message(STATUS "HLE Integration Tests configured")
 message(STATUS "Test categories: Backend Interface, Backend Factory, LDN Bridge, Error Mapping, Type Translation")
