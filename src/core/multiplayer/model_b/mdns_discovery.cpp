@@ -6,6 +6,8 @@
 #include <thread>
 #include <mutex>
 #include <algorithm>
+#include <unordered_map>
+#include <atomic>
 #include <sstream>
 #include <sys/socket.h>
 
@@ -24,7 +26,7 @@ struct MdnsDiscovery::Impl {
     bool is_running = false;
     bool is_advertising = false;
     
-    std::vector<GameSessionInfo> discovered_services;
+    std::unordered_map<std::string, GameSessionInfo> discovered_services; // keyed by host IP
     std::vector<std::string> active_interfaces = {"eth0", "wlan0"};
     
     std::function<void(const GameSessionInfo&)> on_service_discovered;
@@ -128,13 +130,17 @@ DiscoveryState MdnsDiscovery::GetState() const {
 
 std::vector<GameSessionInfo> MdnsDiscovery::GetDiscoveredServices() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    return impl_->discovered_services;
+    std::vector<GameSessionInfo> services;
+    services.reserve(impl_->discovered_services.size());
+    for (const auto& [ip, info] : impl_->discovered_services) {
+        services.push_back(info);
+    }
+    return services;
 }
 
 std::optional<GameSessionInfo> MdnsDiscovery::GetServiceByHostName(const std::string& host_name) const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    
-    for (const auto& service : impl_->discovered_services) {
+    for (const auto& [ip, service] : impl_->discovered_services) {
         if (service.host_name == host_name) {
             return service;
         }
@@ -144,17 +150,16 @@ std::optional<GameSessionInfo> MdnsDiscovery::GetServiceByHostName(const std::st
 
 void MdnsDiscovery::RefreshServices() {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    
+
     auto now = std::chrono::system_clock::now();
     auto timeout = std::chrono::seconds(30);
-    
-    impl_->discovered_services.erase(
-        std::remove_if(impl_->discovered_services.begin(), impl_->discovered_services.end(),
-            [now, timeout](const GameSessionInfo& service) {
-                return now - service.last_seen > timeout;
-            }),
-        impl_->discovered_services.end()
-    );
+    for (auto it = impl_->discovered_services.begin(); it != impl_->discovered_services.end(); ) {
+        if (now - it->second.last_seen > timeout) {
+            it = impl_->discovered_services.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 std::vector<std::string> MdnsDiscovery::GetActiveInterfaces() const {
@@ -195,25 +200,22 @@ void MdnsDiscovery::ProcessIncomingPacket(const uint8_t* data, size_t size, cons
         session_info.ip_version = (source_address.find(':') != std::string::npos) ? 
             IPVersion::IPv6 : IPVersion::IPv4;
         
-        std::lock_guard<std::mutex> lock(impl_->mutex);
-        
-        // Check if service already exists
-        bool found = false;
-        for (auto& service : impl_->discovered_services) {
-            if (service.host_ip == source_address) {
-                service = session_info; // Update existing
-                found = true;
-                break;
+        std::function<void(const GameSessionInfo&)> callback;
+        {
+            std::lock_guard<std::mutex> lock(impl_->mutex);
+
+            auto it = impl_->discovered_services.find(source_address);
+            if (it != impl_->discovered_services.end()) {
+                it->second = session_info; // Update existing
+            } else {
+                session_info.discovered_at = std::chrono::system_clock::now();
+                impl_->discovered_services.emplace(source_address, session_info);
+                callback = impl_->on_service_discovered;
             }
         }
-        
-        if (!found) {
-            session_info.discovered_at = std::chrono::system_clock::now();
-            impl_->discovered_services.push_back(session_info);
-            
-            if (impl_->on_service_discovered) {
-                impl_->on_service_discovered(session_info);
-            }
+
+        if (callback) {
+            callback(session_info);
         }
     }
 }
@@ -241,9 +243,15 @@ void MdnsDiscovery::StartHeartbeat() {
                 // Simplified timeout check for tests
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 if (impl_->heartbeat_running && impl_->on_discovery_timeout) {
-                    std::lock_guard<std::mutex> lock(impl_->mutex);
-                    impl_->state = DiscoveryState::TimedOut;
-                    impl_->on_discovery_timeout();
+                    std::function<void()> callback;
+                    {
+                        std::lock_guard<std::mutex> lock(impl_->mutex);
+                        impl_->state = DiscoveryState::TimedOut;
+                        callback = impl_->on_discovery_timeout;
+                    }
+                    if (callback) {
+                        callback();
+                    }
                 }
                 break;
             }
