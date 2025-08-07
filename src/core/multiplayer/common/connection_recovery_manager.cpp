@@ -14,7 +14,8 @@ class ConnectionRecoveryManager::Impl {
 public:
     Impl(const RecoveryConfig& config, MockNetworkConnection* connection)
         : config_(config), connection_(connection), state_(RecoveryState::Idle),
-          current_attempt_(0), listener_(nullptr) {
+          current_attempt_(0), listener_(nullptr),
+          rng_(std::random_device{}()) {
         
         start_time_ = std::chrono::steady_clock::now();
         
@@ -215,11 +216,9 @@ private:
         
         // Apply jitter if enabled
         if (config_.jitter_enabled) {
-            std::random_device rd;
-            std::mt19937 gen(rd());
             uint32_t jitter_range = (base_delay * config_.jitter_range_percent) / 100;
             std::uniform_int_distribution<uint32_t> dist(0, jitter_range);
-            base_delay += dist(gen);
+            base_delay += dist(rng_);
         }
         
         return base_delay;
@@ -276,6 +275,7 @@ private:
     MockRecoveryListener* listener_;
     std::thread recovery_thread_;
     std::unordered_map<ErrorCode, MockRecoveryStrategy*> custom_strategies_;
+    std::mt19937 rng_;
 };
 
 // ConnectionRecoveryManager implementation
