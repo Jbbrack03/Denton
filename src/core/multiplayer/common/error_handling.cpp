@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <thread>
 #include <iostream>
+#include <deque>
 
 namespace Core::Multiplayer {
 
@@ -100,10 +101,10 @@ public:
         std::cerr << "[" << error.component << "] Error " 
                   << static_cast<int>(error.error_code) << ": " << error.message << std::endl;
         
-        // Add to history
+        // Add to history and trim oldest entries when exceeding limit
         error_history_.push_back(error);
         if (error_history_.size() > max_history_size_) {
-            error_history_.erase(error_history_.begin());
+            error_history_.pop_front();
         }
         
         // Update statistics
@@ -186,13 +187,9 @@ public:
 
     std::vector<ErrorInfo> GetRecentErrors(size_t count) const {
         std::lock_guard<std::mutex> lock(mutex_);
-        size_t start = error_history_.size() > count 
-            ? error_history_.size() - count 
-            : 0;
-        return std::vector<ErrorInfo>(
-            error_history_.begin() + start, 
-            error_history_.end()
-        );
+        size_t to_copy = std::min(count, error_history_.size());
+        auto start = error_history_.end() - static_cast<std::deque<ErrorInfo>::difference_type>(to_copy);
+        return std::vector<ErrorInfo>(start, error_history_.end());
     }
 
     std::unordered_map<ErrorCode, size_t> GetErrorStatistics() const {
@@ -313,7 +310,7 @@ private:
     }
 
     mutable std::mutex mutex_;
-    std::vector<ErrorInfo> error_history_;
+    std::deque<ErrorInfo> error_history_;
     std::unordered_map<ErrorCode, size_t> error_stats_;
     std::unordered_map<ErrorCategory, std::vector<std::unique_ptr<IErrorRecoveryStrategy>>> recovery_strategies_;
     std::unordered_map<ErrorCode, NotificationLevel> notification_levels_;
