@@ -41,7 +41,6 @@ TEST(TddRedPhaseVerification, HeaderFilesExistAndCompile) {
     // This test passes if we reach here without compilation errors
     EXPECT_EQ(static_cast<int>(state), 0);
     EXPECT_EQ(static_cast<int>(version), 0);
-    EXPECT_TRUE(true); // Compilation success indicator
 }
 
 /**
@@ -67,8 +66,8 @@ TEST(TddRedPhaseVerification, ImplementationClassesAreStubs) {
     
     // Check that mock types are defined
     static_assert(std::is_class_v<MockMdnsSocket>, "MockMdnsSocket should be a class");
-    
-    EXPECT_TRUE(true); // Interface verification success
+
+    GTEST_SKIP() << "Interface verification compile check";
 }
 
 /**
@@ -88,8 +87,6 @@ TEST(TddRedPhaseVerification, PrintTestSummary) {
     std::cout << "\nNext Phase: Implement MdnsDiscovery and TxtRecord classes" << std::endl;
     std::cout << "to make tests pass (GREEN PHASE)" << std::endl;
     std::cout << "===================================\n" << std::endl;
-    
-    EXPECT_TRUE(true); // Always pass for informational test
 }
 
 int main(int argc, char** argv) {

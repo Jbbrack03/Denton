@@ -246,7 +246,11 @@ TEST_F(WindowsCapabilityDetectorTest, GetDiagnosticReport_ReturnsNonEmptyReport)
 #else // Not Windows
 
 TEST(WindowsCapabilityDetectorTest, NotAvailableOnNonWindows) {
-    EXPECT_TRUE(true); // Dummy test for non-Windows platforms
+#ifdef _WIN32
+    FAIL() << "Test should not run on Windows";
+#else
+    GTEST_SKIP() << "Windows capability detection unavailable on this platform";
+#endif
 }
 
 #endif // _WIN32

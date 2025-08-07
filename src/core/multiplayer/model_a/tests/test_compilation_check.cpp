@@ -15,8 +15,8 @@
 
 // This test verifies that all our implementations compile correctly
 TEST(CompilationCheck, AllHeadersCompile) {
-    // If this test compiles and runs, it means our headers are valid
-    EXPECT_TRUE(true);
+    // If this test compiles the headers are valid; no runtime behavior
+    GTEST_SKIP() << "Compilation check only";
 }
 
 // Verify basic type instantiation
