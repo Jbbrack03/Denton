@@ -3,9 +3,11 @@
 
 #include "network_security.h"
 #include <algorithm>
+#include <array>
 #include <nlohmann/json.hpp>
 #include <regex>
 #include <sstream>
+#include <string_view>
 
 using json = nlohmann::json;
 
@@ -217,8 +219,7 @@ bool NetworkInputValidator::IsValidUtf8(const std::string& str) {
 }
 
 bool NetworkInputValidator::ContainsSuspiciousPatterns(const std::string& str) {
-    // Check for common injection patterns
-    std::vector<std::string> suspicious_patterns = {
+    static const std::array<std::string_view, 12> suspicious_patterns = {
         "<script",       // XSS attempt
         "javascript:",   // XSS attempt
         "eval(",         // Code injection
@@ -227,21 +228,21 @@ bool NetworkInputValidator::ContainsSuspiciousPatterns(const std::string& str) {
         "..\\",          // Path traversal (Windows)
         "cmd.exe",       // Command injection
         "/bin/",         // Command injection
-        "DROP TABLE",    // SQL injection
-        "SELECT * FROM", // SQL injection
-        "UNION SELECT",  // SQL injection
+        "drop table",    // SQL injection
+        "select * from", // SQL injection
+        "union select",  // SQL injection
         "'; --",         // SQL injection
     };
-    
+
     std::string lower_str = str;
     std::transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
-    
+
     for (const auto& pattern : suspicious_patterns) {
         if (lower_str.find(pattern) != std::string::npos) {
             return true;
         }
     }
-    
+
     return false;
 }
 
