@@ -35,6 +35,7 @@ set(SOURCES
     p2p_network_factory.cpp
     relay_protocol.cpp
     relay_client.cpp
+    model_a_backend.cpp
 )
 
 set(HEADERS
@@ -51,6 +52,7 @@ set(HEADERS
     i_relay_client.h
     relay_protocol.h
     relay_client.h
+    model_a_backend.h
 )
 
 add_library(sudachi_multiplayer_model_a STATIC ${SOURCES} ${HEADERS})
