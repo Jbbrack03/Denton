@@ -8,6 +8,7 @@
 #include <vector>
 #include <functional>
 #include <cstdint>
+#include <future>
 
 namespace Core::Multiplayer::ModelA {
 
@@ -29,7 +30,7 @@ public:
     };
 
     // Network lifecycle
-    virtual MultiplayerResult Start() = 0;
+    virtual std::future<MultiplayerResult> Start() = 0;
     virtual MultiplayerResult Stop() = 0;
     virtual MultiplayerResult Shutdown() = 0;
     virtual bool IsStarted() const = 0;
@@ -38,7 +39,7 @@ public:
     virtual std::string GetPeerId() const = 0;
 
     // Connection management
-    virtual MultiplayerResult ConnectToPeer(const std::string& peer_id, const std::string& multiaddr) = 0;
+    virtual std::future<MultiplayerResult> ConnectToPeer(const std::string& peer_id, const std::string& multiaddr) = 0;
     virtual MultiplayerResult DisconnectFromPeer(const std::string& peer_id) = 0;
     virtual bool IsConnectedToPeer(const std::string& peer_id) const = 0;
     virtual bool IsConnectedViaaRelay(const std::string& peer_id) const = 0;
@@ -52,7 +53,7 @@ public:
     virtual void HandleIncomingMessage(const std::string& peer_id, const std::string& protocol, const std::vector<uint8_t>& data) = 0;
 
     // NAT traversal
-    virtual MultiplayerResult DetectNATType() = 0;
+    virtual std::future<MultiplayerResult> DetectNATType() = 0;
     virtual bool CanTraverseNAT(NATType local_nat, NATType remote_nat) const = 0;
     virtual std::vector<std::string> GetTraversalStrategies(NATType local_nat, NATType remote_nat) const = 0;
 

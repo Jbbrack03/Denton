@@ -446,30 +446,37 @@ std::vector<std::string> Libp2pP2PNetwork::GetConfiguredRelayServers() const {
 
 // Callback setters
 void Libp2pP2PNetwork::SetOnPeerConnectedCallback(std::function<void(const std::string&)> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     on_peer_connected_ = callback;
 }
 
 void Libp2pP2PNetwork::SetOnPeerDisconnectedCallback(std::function<void(const std::string&)> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     on_peer_disconnected_ = callback;
 }
 
 void Libp2pP2PNetwork::SetOnConnectionFailedCallback(std::function<void(const std::string&, const std::string&)> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     on_connection_failed_ = callback;
 }
 
 void Libp2pP2PNetwork::SetOnMessageReceivedCallback(std::function<void(const std::string&, const std::string&, const std::vector<uint8_t>&)> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     on_message_received_ = callback;
 }
 
 void Libp2pP2PNetwork::SetOnNATDetectedCallback(std::function<void(NATType, bool)> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     on_nat_detected_ = callback;
 }
 
 void Libp2pP2PNetwork::SetOnRelayConnectedCallback(std::function<void(const std::string&, const std::string&)> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     on_relay_connected_ = callback;
 }
 
 void Libp2pP2PNetwork::SetOnRelayFailedCallback(std::function<void(const std::string&, const std::string&)> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     on_relay_failed_ = callback;
 }
 

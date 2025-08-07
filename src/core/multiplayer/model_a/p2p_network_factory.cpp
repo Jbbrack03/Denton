@@ -3,7 +3,6 @@
 
 #include "p2p_network_factory.h"
 #include "p2p_network.h"
-#include "libp2p_p2p_network.h"
 
 namespace Core::Multiplayer::ModelA {
 
@@ -22,13 +21,13 @@ std::unique_ptr<IP2PNetwork> P2PNetworkFactory::Create(
 }
 
 std::unique_ptr<IP2PNetwork> P2PNetworkFactory::CreateMock(const P2PNetworkConfig& config) {
-    // Create mock implementation (existing P2PNetwork class with mock dependencies)
+    // Mock implementation uses the same facade with testing configuration
     return std::make_unique<P2PNetwork>(config);
 }
 
 std::unique_ptr<IP2PNetwork> P2PNetworkFactory::CreateLibp2p(const P2PNetworkConfig& config) {
-    // Create real libp2p implementation
-    return std::make_unique<Libp2pP2PNetwork>(config);
+    // Create facade which wraps real libp2p components
+    return std::make_unique<P2PNetwork>(config);
 }
 
 P2PNetworkFactory::Implementation P2PNetworkFactory::GetDefaultImplementation() {
