@@ -12,6 +12,7 @@
 namespace Core::Multiplayer::ModelA {
 
 class Libp2pP2PNetwork; // forward declaration
+class AsyncExecutor;    // forward declaration for shared executor
 
 /**
  * High level P2P network facade.
@@ -66,6 +67,17 @@ public:
 private:
     std::unique_ptr<Libp2pP2PNetwork> impl_;
     mutable std::mutex callback_mutex_;
+
+    /**
+     * @brief Shared executor providing a reusable worker thread pool.
+     *
+     * The executor is thread-safe and used by asynchronous APIs such as
+     * Start(), ConnectToPeer() and DetectNATType(). Tasks submitted to the
+     * executor run on a fixed pool of worker threads rather than spawning new
+     * threads on each request. The executor's lifetime is bound to the
+     * P2PNetwork instance and all worker threads are joined on destruction.
+     */
+    std::shared_ptr<AsyncExecutor> executor_;
 };
 
 } // namespace Core::Multiplayer::ModelA
