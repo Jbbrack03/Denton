@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <utility>
 
 #include "../common/error_codes.h"
 #include "mdns_discovery.h" // For GameSessionInfo
@@ -82,7 +83,7 @@ public:
     
     // Static factory methods
     static TxtRecordBuilder CreateGameSessionTxtRecords(const GameSessionInfo& session_info);
-    static TxtRecordBuilder FromMap(const std::unordered_map<std::string, std::string>& records);
+    static std::pair<ErrorCode, TxtRecordBuilder> FromMap(const std::unordered_map<std::string, std::string>& records);
 
 private:
     // This is a stub - implementation will be added during TDD green phase
@@ -141,7 +142,7 @@ public:
     
     // Static factory methods
     static TxtRecordParser ParseTxtRecords(const std::vector<uint8_t>& binary_data);
-    static TxtRecordParser FromMap(const std::unordered_map<std::string, std::string>& records);
+    static std::pair<ErrorCode, TxtRecordParser> FromMap(const std::unordered_map<std::string, std::string>& records);
 
 private:
     // This is a stub - implementation will be added during TDD green phase
