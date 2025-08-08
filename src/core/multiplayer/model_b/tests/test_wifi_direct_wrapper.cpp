@@ -58,6 +58,7 @@ TEST_F(WiFiDirectWrapperTest, StartAndStopDiscovery) {
     wrapper->Initialize(mock_env.get(), mock_context.get());
     EXPECT_EQ(wrapper->StartDiscovery(nullptr), ErrorCode::Success);
     EXPECT_EQ(wrapper->GetState(), WifiDirectState::Discovering);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_EQ(wrapper->StopDiscovery(), ErrorCode::Success);
     EXPECT_EQ(wrapper->GetState(), WifiDirectState::Initialized);
 }
@@ -76,6 +77,16 @@ TEST_F(WiFiDirectWrapperTest, ConnectAndDisconnectPeer) {
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
     EXPECT_EQ(wrapper->GetState(), WifiDirectState::Connected);
     EXPECT_EQ(wrapper->DisconnectFromPeer(), ErrorCode::Success);
+    EXPECT_EQ(wrapper->GetState(), WifiDirectState::Initialized);
+}
+
+TEST_F(WiFiDirectWrapperTest, CancelConnectionBeforeCompletion) {
+    CreateWrapper();
+    wrapper->Initialize(mock_env.get(), mock_context.get());
+    EXPECT_EQ(wrapper->ConnectToPeer("11:22:33:44:55:66"), ErrorCode::Success);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(wrapper->CancelConnection(), ErrorCode::Success);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     EXPECT_EQ(wrapper->GetState(), WifiDirectState::Initialized);
 }
 

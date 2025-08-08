@@ -50,9 +50,17 @@ public:
     
     // Configuration
     std::chrono::seconds discovery_timeout_{30};
-    
+
     // Thread safety
     mutable std::mutex state_mutex_;
+
+    // Worker threads
+    std::thread discovery_thread_;
+    std::thread connection_thread_;
+
+    // Cancellation flags
+    std::atomic<bool> discovery_cancel_{false};
+    std::atomic<bool> connection_cancel_{false};
     
     // Helper methods
     bool IsValidMacAddress(const std::string& address) const {
@@ -150,19 +158,29 @@ ErrorCode WiFiDirectWrapper::Initialize(MockJNIEnv* mock_env, MockAndroidContext
 }
 
 void WiFiDirectWrapper::Shutdown() {
+    // Cancel any running operations
+    impl_->discovery_cancel_.store(true);
+    if (impl_->discovery_thread_.joinable()) {
+        impl_->discovery_thread_.join();
+    }
+    impl_->connection_cancel_.store(true);
+    if (impl_->connection_thread_.joinable()) {
+        impl_->connection_thread_.join();
+    }
+
     impl_->SetState(WifiDirectState::Uninitialized);
-    
+
     // Clear peers and groups
     {
         std::lock_guard<std::mutex> lock(impl_->peers_mutex_);
         impl_->discovered_peers_.clear();
     }
-    
+
     {
         std::lock_guard<std::mutex> lock(impl_->group_mutex_);
         impl_->current_group_ = WifiP2pGroup{};
     }
-    
+
     // Clear callbacks
     {
         std::lock_guard<std::mutex> lock(impl_->callbacks_mutex_);
@@ -170,7 +188,7 @@ void WiFiDirectWrapper::Shutdown() {
         impl_->connection_callback_ = nullptr;
         impl_->group_callback_ = nullptr;
     }
-    
+
     // Reset JNI/mock references
     impl_->jvm_ = nullptr;
     impl_->android_context_ = nullptr;
@@ -206,20 +224,30 @@ ErrorCode WiFiDirectWrapper::StartDiscovery(PeerDiscoveryCallback callback) {
         // For minimal implementation, we assume discovery succeeds
         // Real implementation would call mock_wifi_p2p_manager_->DiscoverPeers
     }
-    
+
     impl_->SetState(WifiDirectState::Discovering);
     
+    // Clean up any previous discovery thread
+    impl_->discovery_cancel_.store(false);
+    if (impl_->discovery_thread_.joinable()) {
+        impl_->discovery_thread_.join();
+    }
+
     // Simulate peer discovery with a simple timeout
-    std::thread([this]() {
+    impl_->discovery_thread_ = std::thread([this]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        
+
+        if (impl_->discovery_cancel_.load()) {
+            return;
+        }
+
         // In mock mode, add any mock peers that were set up
         if (impl_->is_mock_mode_) {
             std::lock_guard<std::mutex> lock(impl_->peers_mutex_);
             // For now, keep peers empty for minimal implementation
             // Real implementation would populate from mock data
         }
-        
+
         // Notify callback
         {
             std::lock_guard<std::mutex> callback_lock(impl_->callbacks_mutex_);
@@ -228,14 +256,20 @@ ErrorCode WiFiDirectWrapper::StartDiscovery(PeerDiscoveryCallback callback) {
                 impl_->discovery_callback_(impl_->discovered_peers_);
             }
         }
-        
-        // Set state back to initialized after timeout
-        std::this_thread::sleep_for(impl_->discovery_timeout_);
-        if (impl_->state_.load() == WifiDirectState::Discovering) {
+
+        auto elapsed = std::chrono::milliseconds{0};
+        while (!impl_->discovery_cancel_.load() &&
+               elapsed < impl_->discovery_timeout_) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            elapsed += std::chrono::milliseconds(50);
+        }
+
+        if (!impl_->discovery_cancel_.load() &&
+            impl_->state_.load() == WifiDirectState::Discovering) {
             impl_->SetState(WifiDirectState::Initialized);
         }
-    }).detach();
-    
+    });
+
     return ErrorCode::Success;
 }
 
@@ -243,7 +277,12 @@ ErrorCode WiFiDirectWrapper::StopDiscovery() {
     if (impl_->state_.load() != WifiDirectState::Discovering) {
         return ErrorCode::InvalidState;
     }
-    
+
+    impl_->discovery_cancel_.store(true);
+    if (impl_->discovery_thread_.joinable()) {
+        impl_->discovery_thread_.join();
+    }
+
     impl_->SetState(WifiDirectState::Initialized);
     return ErrorCode::Success;
 }
@@ -262,30 +301,43 @@ ErrorCode WiFiDirectWrapper::ConnectToPeer(const std::string& device_address) {
         return ErrorCode::InvalidParameter;
     }
     
-    if (impl_->state_.load() == WifiDirectState::Connecting || 
+    if (impl_->state_.load() == WifiDirectState::Connecting ||
         impl_->state_.load() == WifiDirectState::Connected) {
         return ErrorCode::InvalidState;
     }
-    
+
     impl_->SetState(WifiDirectState::Connecting);
-    
+
+    // Clean up previous connection thread
+    impl_->connection_cancel_.store(false);
+    if (impl_->connection_thread_.joinable()) {
+        impl_->connection_thread_.join();
+    }
+
     // Simulate connection with timeout
-    std::thread([this, device_address]() {
+    impl_->connection_thread_ = std::thread([this]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        
+        if (impl_->connection_cancel_.load()) {
+            return;
+        }
         // For minimal implementation, assume connection succeeds
         impl_->SetState(WifiDirectState::Connected);
-    }).detach();
-    
+    });
+
     return ErrorCode::Success;
 }
 
 ErrorCode WiFiDirectWrapper::DisconnectFromPeer() {
-    if (impl_->state_.load() != WifiDirectState::Connected && 
+    if (impl_->state_.load() != WifiDirectState::Connected &&
         impl_->state_.load() != WifiDirectState::Connecting) {
         return ErrorCode::InvalidState;
     }
-    
+
+    impl_->connection_cancel_.store(true);
+    if (impl_->connection_thread_.joinable()) {
+        impl_->connection_thread_.join();
+    }
+
     impl_->SetState(WifiDirectState::Initialized);
     return ErrorCode::Success;
 }
@@ -294,7 +346,12 @@ ErrorCode WiFiDirectWrapper::CancelConnection() {
     if (impl_->state_.load() != WifiDirectState::Connecting) {
         return ErrorCode::InvalidState;
     }
-    
+
+    impl_->connection_cancel_.store(true);
+    if (impl_->connection_thread_.joinable()) {
+        impl_->connection_thread_.join();
+    }
+
     impl_->SetState(WifiDirectState::Initialized);
     return ErrorCode::Success;
 }
