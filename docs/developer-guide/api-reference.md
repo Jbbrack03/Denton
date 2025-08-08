@@ -277,6 +277,34 @@ namespace Core::Multiplayer {
 }
 ```
 
+`TypeTranslator` operates on an internal representation of network details. The
+`InternalNetworkInfo` structure now exposes additional fields required by games
+that perform strict compatibility checks:
+
+```cpp
+struct InternalNetworkInfo {
+    std::string network_name;
+    std::vector<uint8_t> network_id;
+    std::vector<uint8_t> session_id;
+    uint64_t local_communication_id;
+    uint16_t channel;
+    uint8_t node_count;
+    uint8_t node_count_max;
+    int8_t link_level;
+    uint8_t network_mode;           // 0=None, 1=General, 2=LDN, 3=All
+    std::vector<InternalNodeInfo> nodes;
+    std::vector<uint8_t> advertise_data;
+    bool has_password;
+    std::vector<uint8_t> security_parameter;
+    uint8_t security_mode;          // 0=All, 1=Retail, 2=Debug
+    uint16_t local_communication_version; // Required by titles like Splatoon 3
+};
+```
+
+`ToLdnNetworkInfo` and `FromLdnNetworkInfo` map these fields to the underlying
+LDN structures, preserving security mode, local communication version and other
+security parameters.
+
 ## Backend Interface API
 
 ### IMultiplayerBackend Interface
