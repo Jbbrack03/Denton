@@ -1,0 +1,19 @@
+name: Trailing Newline Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  trailing-newline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure files end with newline
+        run: |
+          missing=$(git ls-files -z | xargs -0 -n1 sh -c 'f="$1"; [ ! -f "$f" ] && exit; if grep -Iq . "$f"; then tail -c1 "$f" | read -r _ || echo "$f"; fi' _)
+          if [ -n "$missing" ]; then
+            echo "Files missing trailing newline:"
+            echo "$missing"
+            exit 1
+          fi
