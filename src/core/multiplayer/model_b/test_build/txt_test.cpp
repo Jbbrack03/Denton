@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 sudachi Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Simple test to verify TXT record implementation works
 
 #include <iostream>

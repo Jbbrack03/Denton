@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 sudachi Emulator Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Game-Specific Integration Tests for Sudachi Multiplayer
 # Tests multiplayer functionality for specific Nintendo Switch games
 

@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.20)
+# SPDX-FileCopyrightText: 2025 sudachi Emulator Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 project(multiplayer_tests)
 
 set(CMAKE_CXX_STANDARD 20)
