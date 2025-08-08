@@ -25,6 +25,15 @@ namespace Core::Multiplayer::HLE {
 /**
  * Internal Multiplayer Types - Minimal definitions for type conversion
  */
+struct InternalNodeInfo {
+    uint8_t node_id;
+    std::string user_name;
+    std::array<uint8_t, 6> mac_address{};
+    std::array<uint8_t, 4> ipv4_address{};
+    bool is_connected;
+    uint16_t local_communication_version;
+};
+
 struct InternalNetworkInfo {
     std::string network_name;
     std::vector<uint8_t> network_id;
@@ -35,17 +44,11 @@ struct InternalNetworkInfo {
     uint8_t node_count_max;
     int8_t link_level;  // Signal strength
     uint8_t network_mode;  // 0=None, 1=General, 2=LDN, 3=All
+    std::vector<InternalNodeInfo> nodes;
     std::vector<uint8_t> advertise_data;
     bool has_password;
     std::vector<uint8_t> security_parameter;
-};
-
-struct InternalNodeInfo {
-    uint8_t node_id;
-    std::string user_name;
-    std::array<uint8_t, 6> mac_address{};
-    std::array<uint8_t, 4> ipv4_address{};
-    bool is_connected;
+    uint8_t security_mode;  // 0=All, 1=Retail, 2=Debug
     uint16_t local_communication_version;
 };
 

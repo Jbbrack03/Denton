@@ -28,8 +28,34 @@ public:
         static_cast<Service::LDN::WifiChannel>(internal.channel);
     ldn.common.link_level =
         static_cast<Service::LDN::LinkLevel>(internal.link_level);
+    ldn.common.network_type =
+        static_cast<Service::LDN::PackedNetworkType>(internal.network_mode);
     ldn.ldn.node_count = internal.node_count;
     ldn.ldn.node_count_max = internal.node_count_max;
+
+    if (!internal.session_id.empty()) {
+      ldn.network_id.session_id = ToLdnSessionId(internal.session_id);
+    }
+
+    ldn.ldn.security_mode =
+        static_cast<Service::LDN::SecurityMode>(internal.security_mode);
+    if (!internal.security_parameter.empty()) {
+      size_t sec_copy = std::min(internal.security_parameter.size(),
+                                 ldn.ldn.security_parameter.size());
+      std::memcpy(ldn.ldn.security_parameter.data(),
+                  internal.security_parameter.data(), sec_copy);
+    }
+
+    size_t node_copy =
+        std::min(static_cast<size_t>(Service::LDN::NodeCountMax),
+                 internal.nodes.size());
+    for (size_t i = 0; i < node_copy; ++i) {
+      ldn.ldn.nodes[i] = ToLdnNodeInfo(internal.nodes[i]);
+    }
+    if (node_copy == 0) {
+      ldn.ldn.nodes[0].local_communication_version =
+          static_cast<int16_t>(internal.local_communication_version);
+    }
 
     // Set SSID from network name
     if (!internal.network_name.empty()) {
@@ -61,6 +87,26 @@ public:
     internal.node_count = ldn.ldn.node_count;
     internal.node_count_max = ldn.ldn.node_count_max;
     internal.link_level = static_cast<int8_t>(ldn.common.link_level);
+    internal.network_mode =
+        static_cast<uint8_t>(ldn.common.network_type);
+
+    internal.session_id = FromLdnSessionId(ldn.network_id.session_id);
+    internal.security_mode =
+        static_cast<uint8_t>(ldn.ldn.security_mode);
+    internal.security_parameter.assign(ldn.ldn.security_parameter.begin(),
+                                      ldn.ldn.security_parameter.end());
+
+    for (size_t i = 0; i < ldn.ldn.node_count; ++i) {
+      internal.nodes.push_back(FromLdnNodeInfo(ldn.ldn.nodes[i]));
+    }
+    if (!internal.nodes.empty()) {
+      internal.local_communication_version =
+          internal.nodes.front().local_communication_version;
+    }
+
+    internal.network_id.resize(sizeof(ldn.network_id));
+    std::memcpy(internal.network_id.data(), &ldn.network_id,
+                sizeof(ldn.network_id));
 
     // Convert advertise data
     if (ldn.ldn.advertise_data_size > 0) {
