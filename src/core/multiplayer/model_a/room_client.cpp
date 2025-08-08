@@ -502,41 +502,41 @@ void RoomClient::ProcessMessage(const std::string& message) {
         return;
     }
     
-    try {
-        json j = json::parse(message);
-        
-        if (!j.contains("type") || !j["type"].is_string()) {
-            return; // Invalid message format
-        }
-        
-        std::string message_type = j["type"];
-        
-        if (message_type == "room_created") {
-            ProcessRoomCreatedMessage(j);
-        } else if (message_type == "error") {
-            ProcessErrorMessage(j);
-        } else if (message_type == "room_list_response") {
-            ProcessRoomListMessage(j);
-        } else if (message_type == "join_room_response") {
-            ProcessJoinRoomMessage(j);
-        } else if (message_type == "p2p_info") {
-            ProcessP2PInfoMessage(j);
-        } else if (message_type == "use_proxy") {
-            ProcessUseProxyMessage(j);
-        } else if (message_type == "player_joined") {
-            ProcessPlayerJoinedMessage(j);
-        } else if (message_type == "player_left") {
-            ProcessPlayerLeftMessage(j);
-        }
-        // Unknown message types are silently ignored
-        
-    } catch (const json::parse_error& e) {
-        // Log parse error but don't crash - malformed JSON should be handled gracefully
-        return;
-    } catch (const json::type_error& e) {
-        // Log type error but don't crash - unexpected JSON structure should be handled gracefully
+    // Quickly check for a type field before attempting full JSON parsing
+    if (message.find("\"type\"") == std::string::npos) {
         return;
     }
+
+    json j = json::parse(message, nullptr, false);
+    if (j.is_discarded() || !j.is_object()) {
+        return;
+    }
+
+    auto type_it = j.find("type");
+    if (type_it == j.end() || !type_it->is_string()) {
+        return; // Invalid message format
+    }
+
+    std::string message_type = *type_it;
+
+    if (message_type == "room_created") {
+        ProcessRoomCreatedMessage(j);
+    } else if (message_type == "error") {
+        ProcessErrorMessage(j);
+    } else if (message_type == "room_list_response") {
+        ProcessRoomListMessage(j);
+    } else if (message_type == "join_room_response") {
+        ProcessJoinRoomMessage(j);
+    } else if (message_type == "p2p_info") {
+        ProcessP2PInfoMessage(j);
+    } else if (message_type == "use_proxy") {
+        ProcessUseProxyMessage(j);
+    } else if (message_type == "player_joined") {
+        ProcessPlayerJoinedMessage(j);
+    } else if (message_type == "player_left") {
+        ProcessPlayerLeftMessage(j);
+    }
+    // Unknown message types are silently ignored
 }
 
 void RoomClient::ProcessRoomCreatedMessage(const json& j) {

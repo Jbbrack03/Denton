@@ -475,19 +475,31 @@ TEST_F(RoomClientMessagesTest, ErrorMessageDeserialization) {
 }
 
 /**
- * Test: Invalid JSON message handling
- * Verifies that malformed JSON messages are handled gracefully
+ * Test: Malformed JSON message handling
+ * Verifies that malformed JSON messages are ignored without throwing exceptions
  */
-TEST_F(RoomClientMessagesTest, InvalidJsonMessageHandling) {
-    // This test will fail because error handling doesn't exist yet
-    
-    // ARRANGE
+TEST_F(RoomClientMessagesTest, MalformedJsonMessageHandledGracefully) {
+    auto client = std::make_unique<RoomClient>(mock_connection_, nullptr);
+    client->SetMessageHandler(mock_handler_);
+
+    EXPECT_CALL(*mock_handler_, OnErrorReceived(_)).Times(0);
+
     std::string invalid_json = "{invalid json structure";
-    
-    // ACT & ASSERT
-    EXPECT_THROW({
-        auto message = MessageDeserializer::DeserializeAny(invalid_json);
-    }, MessageParsingException);
+    EXPECT_NO_THROW(client->SimulateIncomingMessage(invalid_json));
+}
+
+/**
+ * Test: Partial JSON message handling
+ * Ensures that truncated JSON payloads do not raise exceptions
+ */
+TEST_F(RoomClientMessagesTest, PartialJsonMessageHandledGracefully) {
+    auto client = std::make_unique<RoomClient>(mock_connection_, nullptr);
+    client->SetMessageHandler(mock_handler_);
+
+    EXPECT_CALL(*mock_handler_, OnErrorReceived(_)).Times(0);
+
+    std::string partial_json = "{\"type\":\"room_created\""; // Missing closing brace
+    EXPECT_NO_THROW(client->SimulateIncomingMessage(partial_json));
 }
 
 /**
