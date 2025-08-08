@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2025 sudachi Emulator Project
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "libp2p_p2p_network.h"
 #include "common/error_codes.h"

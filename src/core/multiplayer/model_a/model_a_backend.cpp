@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 sudachi Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include "model_a_backend.h"
 
 namespace Core::Multiplayer::ModelA {

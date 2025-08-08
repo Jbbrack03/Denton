@@ -1,6 +1,6 @@
-// Copyright 2024 Sudachi Emulator Project
-// Licensed under GPLv3 or any later version
-// Refer to the license.txt file included.
+// SPDX-FileCopyrightText: 2025 sudachi Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 
 #include "wifi_direct_permission_manager.h"
 #include "../../common/error_codes.h"

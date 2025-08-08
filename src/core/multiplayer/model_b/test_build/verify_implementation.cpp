@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 sudachi Emulator Project
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Verification that implementation files exist and have expected content
 
 #include <iostream>
